@@ -54,10 +54,6 @@ enum resultaditosInsertar insertar(int valor, Camino caminito, Nodo * * john){
     (*john)->valor = -1;
   }
 
-  /**
-   * Aun no revisamos el error de repetidoInsertar!!!!!!!!!!!!!!!!!!!!!
-   */
-
   switch (*caminito) {
     // Caso en el que el camino sea vacio (hay que insertar en la posicion
     // donde estamos
