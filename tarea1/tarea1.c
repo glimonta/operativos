@@ -239,7 +239,8 @@ void * gabbi(FILE * archivito) {
     }
 
     // Procedemos a insertar el nodo en el arbol.
-    insertar(valorcito, caminito, &arbolitoJG); // TODO: check errors
+    insertar(valorcito, caminito, &arbolitoJG);
+    if (*caminito) free(caminito);
   }
   return NULL;
 }
@@ -247,7 +248,7 @@ void * gabbi(FILE * archivito) {
 /**
  * Main del programa.
  * @param argc Cantidad de elementos del arreglo de entrada
- * @param argv Arreglo que contiene los argumentos con los 
+ * @param argv Arreglo que contiene los argumentos con los
  * que fue llamado el programa.
  */
 int main(int argc, char * argv[]) {
