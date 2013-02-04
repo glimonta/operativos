@@ -2,3 +2,6 @@
 (5,) (4,I) (13,DI) (2,IID) (1,DDD) (4,DD) ()
 (3,I) (4,D) ()
 (5,I) (3,) (8,D) (5,II) ()
+(8,) (9,I) (10,II) (11,III) (12,IID) (13,IIDI)
+(14,IIDD) (18,D) (15,DI) (16,DID) (17,DIDI)
+(19,DIDD) (20,DIDDI) (21,DIDDII) (22,DIDDID) ()

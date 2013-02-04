@@ -1,3 +1,13 @@
+#
+# @file Makefile
+# @author Gabriela Limonta 10-10385
+# @author John Delgado 10-10196
+#
+# @section Grupo 09
+#
+# Makefile de la tarea de operativos.
+#
+
 CC = gcc
 COPTS = -Wall -D_GNU_SOURCE -ggdb
 
@@ -5,8 +15,10 @@ COPTS = -Wall -D_GNU_SOURCE -ggdb
 
 all: tarea
 
-clean: ; rm -f tarea.o tarea
+clean: ; rm -f tarea.o arbol.o tarea
 
-tarea: tarea.o; $(CC) $(COPTS) -o $@ $^
+tarea: tarea.o arbol.o; $(CC) $(COPTS) -o $@ $^
+
+arbol.o: arbol.c; $(CC) $(COPTS) -c $<
 
 tarea.o: tarea.c; $(CC) $(COPTS) -c $<
