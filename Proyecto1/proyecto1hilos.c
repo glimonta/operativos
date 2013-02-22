@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sysexits.h>
+#include <string.h>
+#include <stdint.h>
 
 #ifdef DEVELOPMENT
 #  define ALLOC(cuantos, tam) calloc((cuantos),(tam))
@@ -53,11 +55,13 @@ void merge(int const inicio, int const mitad, int const fin) {
   memcpy(&desordenados[inicio], &ordenados[inicio], (fin - inicio) * sizeof(int));
 }
 
-void quick_sort (int *a, int ini, int fin) {
+void quick_sort (int * a, int ini, int fin) {
+  int n;
+
   if (n < 2) return;
   int p = a[fin - ini / 2];
-  int * l = ini;
-  int * r = fin -1;
+  int * l = &ini;
+  int * r = &fin -1;
 
   while (l <= r) {
     if (*l < p) {
@@ -72,46 +76,10 @@ void quick_sort (int *a, int ini, int fin) {
     *l++ = *r;
     *r-- = t;
   }
-  quick_sort(a, ini, r);
-  quick_sort(a, l, fin);
-}
-
-void * nodo(void * datos) {
-  struct datos_nodo * datos_nodo = (struct datos_nodo *)datos;
-  int penultimoNivel = (config.numNiveles - 1 == datos_nodo.nivel);
-  int mitad = (fin - inicio) / 2;
-  void * (*funcionHijos)(void * ) = penultimoNivel ? &hoja : &nodo;
-
-  pthread_t izq;
-  pthread_t der;
-
-  struct datos_nodo datos_izq = {inicio   , mitad, datos_nodo->nivel + 1}; //inicializacion de agregados
-  struct datos_nodo datos_der = {mitad + 1, fin  , datos_nodo->nivel + 1};
-
-  if (0 != pthread_create(izq, NULL, funcionHijos, &datos_izq)) {
-    perror("pthread_create");
-    exit(EX_OSERR);
-  }
-
-  if (0 != pthread_create(der, NULL, funcionHijos, &datos_der)) {
-    perror("pthread_join");
-    exit(EX_OSERR);
-  }
-
-  if (0 != pthread_join(izq, NULL)) {
-    perror("pthread_join");
-    exit(EX_OSERR);
-  }
-
-  if (0 != pthread_join(der, NULL)) {
-    perror("pthread_join");
-    exit(EX_OSERR);
-  }
-
-  merge(inicio, mitad, fin);
-
-  pthread_exit(NULL);
-
+  int aux1 = (int) *r;
+  int aux2 = (int) *l;
+  quick_sort(a, ini, aux1);
+  quick_sort(a, aux2, fin);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -126,31 +94,84 @@ void * hoja(void * datos) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void * nodo(void * datos) {
+  struct datos_nodo * datos_nodo = (struct datos_nodo *)datos;
+  int penultimoNivel = (config.numNiveles - 1 == datos_nodo->nivel);
+  //cambien fin e inicio por datos_nodo->fin y datos_nodo->inicio
+  int mitad = (datos_nodo->fin - datos_nodo->inicio) / 2;
+  void * (*funcionHijos)(void * ) = penultimoNivel ? &hoja : &nodo;
+
+  pthread_t izq;
+  pthread_t der;
+
+  //cambie inicio y fin por datos_nodo->inicio y datos_nodo->fin
+  struct datos_nodo datos_izq = {datos_nodo->inicio   , mitad, datos_nodo->nivel + 1}; //inicializacion de agregados
+  struct datos_nodo datos_der = {mitad + 1, datos_nodo->fin  , datos_nodo->nivel + 1};
+
+  if (0 != pthread_create(&izq, NULL, funcionHijos, &datos_izq)) {
+    perror("pthread_create");
+    exit(EX_OSERR);
+  }
+
+  if (0 != pthread_create(&der, NULL, funcionHijos, &datos_der)) {
+    perror("pthread_join");
+    exit(EX_OSERR);
+  }
+
+  if (0 != pthread_join(izq, NULL)) {
+    perror("pthread_join");
+    exit(EX_OSERR);
+  }
+
+  if (0 != pthread_join(der, NULL)) {
+    perror("pthread_join");
+    exit(EX_OSERR);
+  }
+
+  //cambie inicio y fin por datos_nodo->inicio y datos_nodo->fin
+  merge(datos_nodo->inicio, mitad, datos_nodo->fin);
+
+  pthread_exit(NULL);
+
+}
+
+void Escritura(void * datos) {
+  struct configuracion * datos2 = (struct configuracion *) datos;
+  FILE * file = fopen(datos2->archivoOrdenado,"w+");
+  fprintf(file, "Prueba");
+  fclose(file);
+}
+
 void * principal(FILE * archivo, void * datos) {
-  esordenados = ALLOC(config.numEnteros, sizeof(int));
-  ordenados   = ALLOC(config.numEnteros, sizeof(int));
+  int * desordenados = ALLOC(config.numEnteros, sizeof(int)); //esto lo cambie y declare
+  int * ordenados   = ALLOC(config.numEnteros, sizeof(int)); //de tipo int *
   pthread_t raiz;
   struct datos_nodo datos_raiz = {0, config.numEnteros, 1};
+  //agregue aqui la declaracion de funcionHijos porque me daba error compilando
+  //struct datos_nodo * datos_nodo = (struct datos_nodo *)datos;
+  int penultimoNivel = (config.numNiveles - 1 == datos_raiz.nivel);
+  void * (*funcionHijos)(void * ) = penultimoNivel ? &hoja : &nodo;
 
   if (NULL == desordenados || NULL == ordenados) {
     fprintf(stderr,"Error de reserva de memoria");
     exit(EX_OSERR);
   }
 
-  if (config.numEnteros != fread(desordenado, config.numEnteros, sizeof(int), archivo)) {
+  if (config.numEnteros != fread(desordenados, config.numEnteros, sizeof(int), archivo)) {
     perror("fopen");
     exit(EX_IOERR);
   }
 
-  if (0 != pthread_create(&raiz, NULL, funcionHijos, datos_raiz)) {
+  //Cambie aqui datos_raiz a &datos_raiz porque el tipo era invalido
+  if (0 != pthread_create(&raiz, NULL, funcionHijos, &datos_raiz)) {
     perror("pthread_create");
     exit(EX_OSERR);
   }
 
 }
 
-
-void * apertura(void * datos, const char * nombre, void * (*funcion)(FILE *)) {
+//puse un void * ahi en funcion porque le faltaban parametros
+void * apertura(void * datos, const char * nombre, void * (*funcion)(FILE *, void *)) {
   // Abrimos el archivo para lectura.
   FILE * archivo = fopen(nombre, "r");
   // Si el archivo retorna NULL es porque hubo un error en fopen
@@ -218,7 +239,9 @@ int main(int argc, char * argv[]) {
 
   // Abrimos el archivo y le pasamos a la funcion
   // principal para que trabaje con el mismo.
-  apertura(argv[1], principal, NULL);
+  apertura(NULL, config.archivoDesordenado, principal);
+
+  Escritura(&config);
 
   return 0;
 }
