@@ -1,17 +1,22 @@
 #include <errno.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sysexits.h>
 #include <string.h>
-#include <stdint.h>
+#include <sysexits.h>
+#include <time.h>
 
-#ifdef DEVELOPMENT
-#  define ALLOC(cuantos, tam) calloc((cuantos),(tam))
+
+#if DEVELOPMENT
+#  define ALLOC(cuantos, tam) (calloc((cuantos),(tam)))
 #else
-#  define ALLOC(cuantos, tam) malloc((cuantos)*(tam))
+#  define ALLOC(cuantos, tam) (malloc((cuantos)*(tam)))
 #endif
+
+
 
 enum parametros
   { P_NUMENTEROS = 1
@@ -21,8 +26,27 @@ enum parametros
   }
 ;
 
+
+
+enum modo
+  { M_LECTURA
+  , M_ESCRITURA
+  }
+;
+
+char const * modoArchivo(enum modo modo) {
+  switch (modo) {
+    case M_LECTURA  : return "r" ;
+    case M_ESCRITURA: return "w+";
+  }
+}
+
+
+
 int * desordenados;
 int * ordenados;
+
+
 
 struct configuracion {
   int numEnteros;
@@ -32,92 +56,157 @@ struct configuracion {
 } config;
 
 
+
 struct datos_nodo {
   int inicio;
   int fin;
   int nivel;
+  int id;
 };
 
-void merge(int const inicio, int const mitad, int const fin) {
-  int i;
-  int l = inicio;
-  int r = mitad + 1;
 
-  for (i = inicio; i < fin; ++i) {
-    if (desordenados[l] > desordenados[r]) {
-      ordenados[i] = desordenados[l];
-      ++l;
-    } else {
-      ordenados[i] = desordenados[r];
-      ++r;
+
+#if DEVELOPMENT
+  void lock(pthread_mutex_t * mutex) {
+    int s = pthread_mutex_lock(mutex);
+    if (s != 0) {
+      fprintf(stderr, "Error intentando entrar en una sección crítica; pthread_mutex_unlock: ");
+      errno = s;
+      perror(NULL);
+      exit(EX_SOFTWARE);
     }
   }
+
+  void unlock(pthread_mutex_t * mutex) {
+    int s = pthread_mutex_unlock(mutex);
+    if (s != 0) {
+      fprintf(stderr, "Error intentando salir de una sección crítica; pthread_mutex_unlock: ");
+      errno = s;
+      perror(NULL);
+      exit(EX_SOFTWARE);
+    }
+  }
+
+  pthread_mutex_t mutexSalida = PTHREAD_MUTEX_INITIALIZER;
+
+  void thread_fprintf(struct datos_nodo * datos_nodo, FILE * file, char const * format, ...) {
+    va_list arguments;
+    va_start(arguments, format);
+    lock(&mutexSalida);
+    {
+      int i;
+      fprintf(file, "El hilo {%d, %d, %d} dice: ", datos_nodo->inicio, datos_nodo->fin, datos_nodo->nivel);
+      vfprintf(file, format, arguments);
+      for (i = datos_nodo->inicio; i < datos_nodo->fin; ++i) {
+        fprintf(file, "%d ", desordenados[i]);
+      }
+      fprintf(file, "\n");
+    }
+    unlock(&mutexSalida);
+    va_end(arguments);
+  }
+#endif
+
+
+
+void merge(int const inicio, int const mitad, int const fin) {
+  int i = inicio;
+  int l = inicio;
+  int r = mitad;
+
+  while (l < mitad && r < fin) {
+    ordenados[i++]
+      = desordenados[l] < desordenados[r]
+      ? desordenados[l++]
+      : desordenados[r++];
+      ;
+  }
+
+  while (l < mitad) ordenados[i++] = desordenados[l++];
+  while (r < fin  ) ordenados[i++] = desordenados[r++];
+
   memcpy(&desordenados[inicio], &ordenados[inicio], (fin - inicio) * sizeof(int));
 }
 
-void quick_sort (int * a, int ini, int fin) {
-  int n;
 
-  if (n < 2) return;
-  int p = a[fin - ini / 2];
-  int * l = &ini;
-  int * r = &fin -1;
 
-  while (l <= r) {
-    if (*l < p) {
-      l++;
-      continue;
-    }
-    if (*r > p) {
-      r--;
-      continue;
-    }
-    int t = *l;
-    *l++ = *r;
-    *r-- = t;
-  }
-  int aux1 = (int) *r;
-  int aux2 = (int) *l;
-  quick_sort(a, ini, aux1);
-  quick_sort(a, aux2, fin);
+void swap(int * a, int i, int j) {
+   int t = a[i];
+   a[i] = a[j];
+   a[j] = t;
 }
 
-////////////////////////////////////////////////////////////////////////////////
+int particion(int * a, int ini, int fin) {
+  int pivo = a[fin];
+  int i, j;
+  for(i = ini - 1, j = ini; j <= fin - 1; ++j) {
+    if (a[j] <= pivo) {
+      ++i;
+      swap(a, i, j);
+    }
+  }
+  ++i;
+  swap(a, i, fin);
+  return i;
+}
+
+void quicksort(int * a, int ini, int fin) {
+  if (ini >= fin) return;
+  int q = particion(a, ini, fin);
+  quicksort(a, ini, q - 1);
+  quicksort(a, q + 1, fin);
+}
+
+
 
 void * hoja(void * datos) {
   struct datos_nodo * datos_nodo = (struct datos_nodo *)datos;
 
-  quick_sort(desordenados, datos_nodo->inicio, datos_nodo->fin);
+#if DEVELOPMENT
+  thread_fprintf(datos_nodo, stderr, "hoja desordenada; ");
+#endif
 
-  pthread_exit(NULL);
+  quicksort(desordenados, datos_nodo->inicio, datos_nodo->fin - 1);
+
+#if DEVELOPMENT
+  thread_fprintf(datos_nodo, stderr, "hoja ordenada; ");
+#endif
+
+  return NULL;
 }
 
-///////////////////////////////////////////////////////////////////////////////
+
 
 void * nodo(void * datos) {
   struct datos_nodo * datos_nodo = (struct datos_nodo *)datos;
-  int penultimoNivel = (config.numNiveles - 1 == datos_nodo->nivel);
-  //cambien fin e inicio por datos_nodo->fin y datos_nodo->inicio
-  int mitad = (datos_nodo->fin - datos_nodo->inicio) / 2;
-  void * (*funcionHijos)(void * ) = penultimoNivel ? &hoja : &nodo;
+  int mitad = datos_nodo->inicio + (datos_nodo->fin - datos_nodo->inicio) / 2;
+  void * (*funcionHijos)(void * ) = config.numNiveles - 1 == datos_nodo->nivel ? &hoja : &nodo;
 
   pthread_t izq;
   pthread_t der;
 
-  //cambie inicio y fin por datos_nodo->inicio y datos_nodo->fin
-  struct datos_nodo datos_izq = {datos_nodo->inicio   , mitad, datos_nodo->nivel + 1}; //inicializacion de agregados
-  struct datos_nodo datos_der = {mitad + 1, datos_nodo->fin  , datos_nodo->nivel + 1};
+  struct datos_nodo datos_izq = {datos_nodo->inicio, mitad          , datos_nodo->nivel + 1, datos_nodo->id * 2 -1}; //inicializacion de agregados
+  struct datos_nodo datos_der = {mitad             , datos_nodo->fin, datos_nodo->nivel + 1, datos_nodo->id * 2};
 
+#if SEQUENTIAL
+  funcionHijos(&datos_izq);
+#else
   if (0 != pthread_create(&izq, NULL, funcionHijos, &datos_izq)) {
     perror("pthread_create");
     exit(EX_OSERR);
   }
+#endif
 
+#if SEQUENTIAL
+  funcionHijos(&datos_der);
+#else
   if (0 != pthread_create(&der, NULL, funcionHijos, &datos_der)) {
-    perror("pthread_join");
+    perror("pthread_create");
     exit(EX_OSERR);
   }
+#endif
 
+#if !SEQUENTIAL
   if (0 != pthread_join(izq, NULL)) {
     perror("pthread_join");
     exit(EX_OSERR);
@@ -127,53 +216,102 @@ void * nodo(void * datos) {
     perror("pthread_join");
     exit(EX_OSERR);
   }
+#endif
 
-  //cambie inicio y fin por datos_nodo->inicio y datos_nodo->fin
+#if DEVELOPMENT
+  thread_fprintf(datos_nodo, stderr, "nodo desmergeado; mitad: %d; ", mitad);
+#endif
+
+  struct timespec tiempoInicio;
+  struct timespec tiempoFinal;
+
+  clock_gettime(CLOCK_MONOTONIC, &tiempoInicio);
   merge(datos_nodo->inicio, mitad, datos_nodo->fin);
+  clock_gettime(CLOCK_MONOTONIC, &tiempoFinal);
 
-  pthread_exit(NULL);
+  printf
+    ( "Tiempo del hilo %d del nivel %d: %lf μs\n"
+    , datos_nodo->id
+    , datos_nodo->nivel
+    , difftime(tiempoFinal.tv_sec, tiempoInicio.tv_sec)*1000000
+    + (tiempoFinal.tv_nsec - tiempoInicio.tv_nsec)/10e3
+    )
+  ;
 
+#if DEVELOPMENT
+  thread_fprintf(datos_nodo, stderr, "nodo mergeado; mitad: %d; ", mitad);
+#endif
+
+  return NULL;
 }
 
-void Escritura(void * datos) {
-  struct configuracion * datos2 = (struct configuracion *) datos;
-  FILE * file = fopen(datos2->archivoOrdenado,"w+");
-  fprintf(file, "Prueba");
-  fclose(file);
+
+
+void * escritura(FILE * archivo, void * datos) {
+  struct configuracion * configuracion = (struct configuracion *) datos;
+  int i;
+  for (i = 0; i < configuracion->numEnteros; ++i) {
+    fprintf(archivo, "%d ", desordenados[i]);
+  }
 }
+
+
 
 void * principal(FILE * archivo, void * datos) {
-  int * desordenados = ALLOC(config.numEnteros, sizeof(int)); //esto lo cambie y declare
-  int * ordenados   = ALLOC(config.numEnteros, sizeof(int)); //de tipo int *
-  pthread_t raiz;
-  struct datos_nodo datos_raiz = {0, config.numEnteros, 1};
-  //agregue aqui la declaracion de funcionHijos porque me daba error compilando
-  //struct datos_nodo * datos_nodo = (struct datos_nodo *)datos;
-  int penultimoNivel = (config.numNiveles - 1 == datos_raiz.nivel);
-  void * (*funcionHijos)(void * ) = penultimoNivel ? &hoja : &nodo;
+  desordenados = (int *)ALLOC(config.numEnteros, sizeof(int));
+  ordenados    = (int *)ALLOC(config.numEnteros, sizeof(int));
 
   if (NULL == desordenados || NULL == ordenados) {
     fprintf(stderr,"Error de reserva de memoria");
     exit(EX_OSERR);
   }
 
-  if (config.numEnteros != fread(desordenados, config.numEnteros, sizeof(int), archivo)) {
-    perror("fopen");
+  pthread_t raiz;
+  struct datos_nodo datos_raiz = {0, config.numEnteros, 1, 1};
+
+  if (config.numEnteros != fread(desordenados, sizeof(int), config.numEnteros, archivo)) {
+    perror("fread");
     exit(EX_IOERR);
   }
 
-  //Cambie aqui datos_raiz a &datos_raiz porque el tipo era invalido
+  void * (*funcionHijos)(void * ) = config.numNiveles == 1 ? &hoja : &nodo;
+
+  struct timespec tiempoInicio;
+  struct timespec tiempoFinal;
+
+  clock_gettime(CLOCK_MONOTONIC, &tiempoInicio);
+
+#if SEQUENTIAL
+  funcionHijos(&datos_raiz);
+#else
   if (0 != pthread_create(&raiz, NULL, funcionHijos, &datos_raiz)) {
     perror("pthread_create");
     exit(EX_OSERR);
   }
 
+  if (0 != pthread_join(raiz, NULL)) {
+    perror("pthread_join");
+    exit(EX_OSERR);
+  }
+#endif
+
+  clock_gettime(CLOCK_MONOTONIC, &tiempoFinal);
+
+  printf
+    ( "Tiempo total de ejecución: %lf μs\n"
+    , difftime(tiempoFinal.tv_sec, tiempoInicio.tv_sec)*1000000
+    + (tiempoFinal.tv_nsec - tiempoInicio.tv_nsec)/10e3
+    )
+  ;
+
+  free(ordenados);
 }
 
-//puse un void * ahi en funcion porque le faltaban parametros
-void * apertura(void * datos, const char * nombre, void * (*funcion)(FILE *, void *)) {
+
+
+void * apertura(void * datos, enum modo const modo, const char * nombre, void * (*funcion)(FILE *, void *)) {
   // Abrimos el archivo para lectura.
-  FILE * archivo = fopen(nombre, "r");
+  FILE * archivo = fopen(nombre, modoArchivo(modo));
   // Si el archivo retorna NULL es porque hubo un error en fopen
   // se detiene la ejecucion del programa.
   if (NULL == archivo) {
@@ -189,6 +327,7 @@ void * apertura(void * datos, const char * nombre, void * (*funcion)(FILE *, voi
   // Retornamos lo que devuelve la ejecucion de la función.
   return retorno;
 }
+
 
 
 int main(int argc, char * argv[]) {
@@ -235,13 +374,13 @@ int main(int argc, char * argv[]) {
   }
 
   config.archivoDesordenado = argv[P_ARCHIVODEENTEROSDESORDENADOS];
-  config.archivoOrdenado = argv[P_ARCHIVOSDEENTEROSORDENADOS];
+  config.archivoOrdenado    = argv[P_ARCHIVOSDEENTEROSORDENADOS  ];
 
   // Abrimos el archivo y le pasamos a la funcion
   // principal para que trabaje con el mismo.
-  apertura(NULL, config.archivoDesordenado, principal);
-
-  Escritura(&config);
+  apertura(NULL   , M_LECTURA  , config.archivoDesordenado, principal);
+  apertura(&config, M_ESCRITURA, config.archivoOrdenado   , escritura);
+  free(desordenados);
 
   return 0;
 }
