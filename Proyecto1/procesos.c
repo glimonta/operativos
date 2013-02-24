@@ -67,7 +67,7 @@ void child_wait() {
       perror("wait");
       exit(EX_OSERR);
     }
-printf("status %x\n", status);
+
     if (WIFEXITED(status)) {
       if (EX_OK != WEXITSTATUS(status)) {
         exit(WEXITSTATUS(status));

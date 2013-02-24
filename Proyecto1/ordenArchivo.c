@@ -60,9 +60,9 @@ void merge(int * desordenados, int * ordenados, int const inicio, int const mita
 
 
 void swap(int * a, int i, int j) {
-   int t = a[i];
-   a[i] = a[j];
-   a[j] = t;
+  int t = a[i];
+  a[i] = a[j];
+  a[j] = t;
 }
 
 int particion(int * a, int ini, int fin) {

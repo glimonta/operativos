@@ -80,31 +80,26 @@ void * nodo(void * datos) {
   int mitad = datos_nodo->inicio + (datos_nodo->fin - datos_nodo->inicio) / 2;
   void * (*funcionHijos)(void * ) = configuracion.numNiveles - 1 == datos_nodo->nivel ? &hoja : &nodo;
 
-  pthread_t izq;
-  pthread_t der;
-
   struct datos_nodo datos_izq = {datos_nodo->inicio, mitad          , datos_nodo->nivel + 1, datos_nodo->id * 2 - 1}; //inicializacion de agregados
   struct datos_nodo datos_der = {mitad             , datos_nodo->fin, datos_nodo->nivel + 1, datos_nodo->id * 2    };
 
 #if SEQUENTIAL
   funcionHijos(&datos_izq);
+  funcionHijos(&datos_der);
 #else
+  pthread_t izq;
+  pthread_t der;
+
   if (0 != pthread_create(&izq, NULL, funcionHijos, &datos_izq)) {
     perror("pthread_create");
     exit(EX_OSERR);
   }
-#endif
 
-#if SEQUENTIAL
-  funcionHijos(&datos_der);
-#else
   if (0 != pthread_create(&der, NULL, funcionHijos, &datos_der)) {
     perror("pthread_create");
     exit(EX_OSERR);
   }
-#endif
 
-#if !SEQUENTIAL
   if (0 != pthread_join(izq, NULL)) {
     perror("pthread_join");
     exit(EX_OSERR);
@@ -165,7 +160,6 @@ void * principal(FILE * archivo, void * datos) {
     exit(EX_OSERR);
   }
 
-  pthread_t raiz;
   struct datos_nodo datos_raiz = {0, configuracion.numEnteros, 1, 1};
 
   if ((size_t)configuracion.numEnteros != fread(desordenados, sizeof(int), configuracion.numEnteros, archivo)) {
@@ -180,19 +174,7 @@ void * principal(FILE * archivo, void * datos) {
 
   clock_gettime(CLOCK_MONOTONIC, &tiempoInicio);
 
-#if SEQUENTIAL
   funcionHijos(&datos_raiz);
-#else
-  if (0 != pthread_create(&raiz, NULL, funcionHijos, &datos_raiz)) {
-    perror("pthread_create");
-    exit(EX_OSERR);
-  }
-
-  if (0 != pthread_join(raiz, NULL)) {
-    perror("pthread_join");
-    exit(EX_OSERR);
-  }
-#endif
 
   clock_gettime(CLOCK_MONOTONIC, &tiempoFinal);
 

@@ -13,7 +13,6 @@
 
 
 int * desordenados;
-int * ordenados;
 
 
 
@@ -24,14 +23,14 @@ struct opcionesLectura {
 
 void * lectura(FILE * archivo, void * datos) {
   struct opcionesLectura opcionesLectura = *((struct opcionesLectura *)datos);
-  int i;
-  for (i = 0; i < opcionesLectura.cantidad; ++i) {
-    if (1 != fscanf(archivo, " %d ", &desordenados[configuracion.inicio + i])) {
-      perror("fscanf");
-      exit(EX_IOERR);
-    }
-  }
-  return NULL;
+   int i;
+   for (i = 0; i < opcionesLectura.cantidad; ++i) {
+     if (1 != fscanf(archivo, " %d ", &desordenados[opcionesLectura.inicio + i])) {
+       perror("fscanf");
+       exit(EX_IOERR);
+     }
+   }
+   return NULL;
 }
 
 
@@ -39,7 +38,7 @@ void * lectura(FILE * archivo, void * datos) {
 void * escritura(FILE * archivo, void * datos) {
   int i;
   for (i = 0; i < *((int *)datos); ++i) {
-    fprintf(archivo, "%d ", ordenados[i]);
+    fprintf(archivo, "%d ", desordenados[i]);
   }
   return NULL;
 }
@@ -64,11 +63,20 @@ int main(int argc, char * argv[]) {
   char * nombreArchIzq;
   char * nombreArchDer;
   asprintf(&nombreArch   , "%d.txt", getpid());
+
+#if SEQUENTIAL
+  asprintf(&nombreArchIzq, "%d.txt", child_create(funcionHijos, &datos_izq, configuracion.numNiveles, configuracion.archivoDesordenado));
+  child_wait();
+  asprintf(&nombreArchDer, "%d.txt", child_create(funcionHijos, &datos_der, configuracion.numNiveles, configuracion.archivoDesordenado));
+  child_wait();
+#else
   asprintf(&nombreArchIzq, "%d.txt", child_create(funcionHijos, &datos_izq, configuracion.numNiveles, configuracion.archivoDesordenado));
   asprintf(&nombreArchDer, "%d.txt", child_create(funcionHijos, &datos_der, configuracion.numNiveles, configuracion.archivoDesordenado));
+  child_wait();
+  child_wait();
+#endif
 
-  child_wait();
-  child_wait();
+
 
   struct timespec tiempoInicio;
   struct timespec tiempoFinal;
@@ -85,7 +93,7 @@ int main(int argc, char * argv[]) {
   opcionesLectura.inicio   = mitad - configuracion.inicio;
   apertura(&opcionesLectura, M_LECTURA, nombreArchDer, lectura);
 
-  ordenados = (int *)ALLOC(numEnteros, sizeof(int));
+  int * ordenados = (int *)ALLOC(numEnteros, sizeof(int));
   merge(desordenados, ordenados, 0, numEnteros/2, numEnteros);
   free(ordenados);
 
