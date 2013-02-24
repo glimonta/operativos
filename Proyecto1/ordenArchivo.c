@@ -5,8 +5,8 @@
  *
  * @section Grupo 09
  *
- * Contiene la implementacion de las funciones que son comunes 
- * a ambos tipos de ordenamientos, el que utiliza hilos y el 
+ * Contiene la implementacion de las funciones que son comunes
+ * a ambos tipos de ordenamientos, el que utiliza hilos y el
  * que utiliza procesos.
  *
  */
@@ -21,7 +21,7 @@
 
 /**
  * Se encarga de transformar el tipo enumerado modo
- * a un string que indica el modo en que se abre un 
+ * a un string que indica el modo en que se abre un
  * archivo.
  * @param modo Indica el modo en que queremos escribir
  * el archivo (lectura/escritura)
@@ -37,15 +37,15 @@ char const * modoArchivo(enum modo modo) {
 
 /**
  * Se encarga de abrir un archivo para que una funcion trabaje con el
- * y luego cerrar el archivo 
- * @param datos estructura que contiene los datos que se pasaran como 
+ * y luego cerrar el archivo
+ * @param datos estructura que contiene los datos que se pasaran como
  * parametros a la funcion dada.
  * @param modo Indica el modo en el que se abrira el archivo, bien sea
  * para lectura o para escritura
  * @param nombre Indica el nombre del archivo con el que se trabajara
  * @param funcion Funcion que trabajara con el archivo luego de que
  * apertura se encargue de abrirlo
- * @return Retorna lo que devuelve la ejecucion de la funcion 
+ * @return Retorna lo que devuelve la ejecucion de la funcion
  */
 void * apertura(void * datos, enum modo const modo, const char * nombre, void * (*funcion)(FILE *, void *)) {
   // Abrimos el archivo para lectura.
@@ -84,7 +84,7 @@ void merge(int * desordenados, int * ordenados, int const inicio, int const mita
   int r = mitad;  // Posicion de la segunda mitad de desordenados
 
   /* Mientras nos mantengamos dentro de los limites del arreglo
-   * se asigna a ordenados[i] el menor entre desordenados[l] y 
+   * se asigna a ordenados[i] el menor entre desordenados[l] y
    * desordenados[r].
    */
   while (l < mitad && r < fin) {
@@ -123,7 +123,7 @@ void swap(int * a, int i, int j) {
 
 /**
  * Selecciona el ultimo elemento del arreglo como pivote y posiciona
- * todos los elementos menores a el a su izquierda y los mayores a 
+ * todos los elementos menores a el a su izquierda y los mayores a
  * la derecha.
  * @param a Arreglo que se va a particionar.
  * @param ini Posicion inicial del arreglo.
@@ -144,14 +144,14 @@ int particion(int * a, int ini, int fin) {
   }
   ++i;
   // Hacemos swap del pivote con el elemento i, asi quedan
-  // los menores al pivote a su izquierda y los mayores a 
+  // los menores al pivote a su izquierda y los mayores a
   // la derecha
   swap(a, i, fin);
   // Retorna la posicion del pivote.
   return i;
 }
 
-/** 
+/**
  * Se encarga de hacer un quicksort sobre el arreglo a.
  * @oaram a Arreglo que vamos a ordenar.
  * @param ini Posicion inicial del arreglo.

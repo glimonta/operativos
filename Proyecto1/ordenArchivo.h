@@ -24,7 +24,7 @@
 
 
 /**
- * Estructura que se utiliza para guardar informacion de 
+ * Estructura que se utiliza para guardar informacion de
  * cada uno de los nodos.
  */
 struct datos_nodo {
@@ -37,7 +37,7 @@ struct datos_nodo {
 
 /**
  * Tipo enumerado que indica el modo de apertura de un archivo
- * si es para lectura o escritura 
+ * si es para lectura o escritura
  */
 enum modo
   { M_LECTURA
@@ -47,15 +47,15 @@ enum modo
 
 /**
  * Se encarga de abrir un archivo para que una funcion trabaje con el
- * y luego cerrar el archivo 
- * @param datos estructura que contiene los datos que se pasaran como 
+ * y luego cerrar el archivo
+ * @param datos estructura que contiene los datos que se pasaran como
  * parametros a la funcion dada.
  * @param modo Indica el modo en el que se abrira el archivo, bien sea
  * para lectura o para escritura
  * @param nombre Indica el nombre del archivo con el que se trabajara
  * @param funcion Funcion que trabajara con el archivo luego de que
  * apertura se encargue de abrirlo
- * @return Retorna lo que devuelve la ejecucion de la funcion 
+ * @return Retorna lo que devuelve la ejecucion de la funcion
  */
 void * apertura
   ( void * datos
@@ -84,7 +84,7 @@ void merge
   )
 ;
 
-/** 
+/**
  * Se encarga de hacer un quicksort sobre el arreglo a.
  * @oaram a Arreglo que vamos a ordenar.
  * @param ini Posicion inicial del arreglo.
