@@ -2,12 +2,12 @@
 #define HIJOS_H
 
 enum parametros
-  { PH_INICIO = 1
-  , PH_FIN
-  , PH_NIVEL
-  , PH_ID
-  , PH_NUMNIVELES
-  , PH_ARCHIVODEENTEROSDESORDENADOS
+  { P_INICIO = 1
+  , P_FIN
+  , P_NIVEL
+  , P_ID
+  , P_NUMNIVELES
+  , P_ARCHIVODEENTEROSDESORDENADOS
   }
 ;
 
@@ -17,7 +17,7 @@ struct configuracion {
   int nivel;
   int id;
   int numNiveles;
-  char const * archivoDesordenado;
+  char * archivoDesordenado;
 };
 
 extern struct configuracion configuracion;

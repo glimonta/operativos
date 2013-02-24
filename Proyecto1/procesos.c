@@ -2,6 +2,7 @@
 #include <sysexits.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 #include "ordenArchivo.h"
 #include "procesos.h"
@@ -12,26 +13,31 @@ char const * tipoHijo(enum hijo hijo) {
   switch (hijo) {
     case H_NODO: return "./nodo";
     case H_HOJA: return "./hoja";
+    default    : return NULL    ;
   }
 }
 
 
 
-pid_t child_create(enum hijo hijo, struct datos_nodo * parametros) {
-  switch (pid_t child = fork()) {
+pid_t child_create(enum hijo hijo, struct datos_nodo * datos_nodo, int numNiveles, char * archivoDesordenado) {
+  pid_t child = fork();
+  char * inicio;
+  char * fin;
+  char * nivel;
+  char * id;
+  char * numNiv;
+
+  switch (child) {
     case -1:
       perror("fork");
       exit(EX_OSERR);
 
     case 0:
-      char * inicio;
-      char * fin;
-      char * nivel;
-      char * id;
       asprintf(&inicio, "%d", datos_nodo->inicio);
       asprintf(&fin   , "%d", datos_nodo->fin   );
       asprintf(&nivel , "%d", datos_nodo->nivel );
       asprintf(&id    , "%d", datos_nodo->id    );
+      asprintf(&numNiv, "%d", numNiveles        );
       execlp
         ( tipoHijo(hijo)
         , tipoHijo(hijo)
@@ -39,8 +45,9 @@ pid_t child_create(enum hijo hijo, struct datos_nodo * parametros) {
         , fin
         , nivel
         , id
-        , configuracion->archivoDesordenado
-        , NULL
+        , numNiv
+        , archivoDesordenado
+        , (char *)NULL
         )
       ;
       perror("execlp");
@@ -60,8 +67,8 @@ void child_wait() {
       perror("wait");
       exit(EX_OSERR);
     }
-
-    if (!WIFEXITED(status)) {
+printf("status %x\n", status);
+    if (WIFEXITED(status)) {
       if (EX_OK != WEXITSTATUS(status)) {
         exit(WEXITSTATUS(status));
       }

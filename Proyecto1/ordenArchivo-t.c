@@ -151,6 +151,7 @@ void * escritura(FILE * archivo, void * datos) {
   for (i = 0; i < configuracion->numEnteros; ++i) {
     fprintf(archivo, "%d ", desordenados[i]);
   }
+  return NULL;
 }
 
 
@@ -167,7 +168,7 @@ void * principal(FILE * archivo, void * datos) {
   pthread_t raiz;
   struct datos_nodo datos_raiz = {0, configuracion.numEnteros, 1, 1};
 
-  if (configuracion.numEnteros != fread(desordenados, sizeof(int), configuracion.numEnteros, archivo)) {
+  if ((size_t)configuracion.numEnteros != fread(desordenados, sizeof(int), configuracion.numEnteros, archivo)) {
     perror("fread");
     exit(EX_IOERR);
   }
@@ -203,6 +204,8 @@ void * principal(FILE * archivo, void * datos) {
   ;
 
   free(ordenados);
+
+  return NULL;
 }
 
 

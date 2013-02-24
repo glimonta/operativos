@@ -12,6 +12,7 @@ char const * modoArchivo(enum modo modo) {
   switch (modo) {
     case M_LECTURA  : return "r" ;
     case M_ESCRITURA: return "w+";
+    default         : return NULL;
   }
 }
 
@@ -21,7 +22,8 @@ void * apertura(void * datos, enum modo const modo, const char * nombre, void * 
   // Si el archivo retorna NULL es porque hubo un error en fopen
   // se detiene la ejecucion del programa.
   if (NULL == archivo) {
-    perror("fopen");
+    fprintf(stderr, "fopen: %s: ", nombre);
+    perror("");
     exit(EX_IOERR);
   }
 

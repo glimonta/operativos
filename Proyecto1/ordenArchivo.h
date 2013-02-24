@@ -1,6 +1,7 @@
 #ifndef ORDENARCHIVO_H
 #define ORDENARCHIVO_H
 
+#include <stdio.h>
 #include <stdlib.h>
 
 

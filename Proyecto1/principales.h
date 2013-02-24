@@ -12,8 +12,8 @@ enum parametros
 struct configuracion {
   int numEnteros;
   int numNiveles;
-  char const * archivoDesordenado;
-  char const * archivoOrdenado;
+  char * archivoDesordenado;
+  char * archivoOrdenado;
 };
 
 extern struct configuracion configuracion;

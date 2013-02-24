@@ -1,5 +1,2 @@
-.*.sw?
-*.o
-*.gch
-proyecto1hilos
-proyecto1procesos
+ordenArchivo-t
+ordenArchivo-p
