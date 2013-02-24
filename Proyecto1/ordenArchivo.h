@@ -1,14 +1,14 @@
 /**
-* @file ordenArchivo.h
-* @author Gabriela Limonta 10-10385
-* @author John Delgado 10-10196
-*
-* @section Grupo 09
-*
-* Contiene las funciones que son comunes a ambos tipos de ordenamientos,
-* el que utiliza hilos y el que utiliza procesos.
-*
-*/
+ * @file ordenArchivo.h
+ * @author Gabriela Limonta 10-10385
+ * @author John Delgado 10-10196
+ *
+ * @section Grupo 09
+ *
+ *  Contiene las funciones que son comunes a ambos tipos de ordenamientos,
+ * el que utiliza hilos y el que utiliza procesos.
+ *
+ */
 #ifndef ORDENARCHIVO_H
 #define ORDENARCHIVO_H
 

@@ -1,3 +1,15 @@
+/**
+ * @file ordenArchivo.c
+ * @author Gabriela Limonta 10-10385
+ * @author John Delgado 10-10196
+ *
+ * @section Grupo 09
+ *
+ * Contiene la implementacion de las funciones que son comunes 
+ * a ambos tipos de ordenamientos, el que utiliza hilos y el 
+ * que utiliza procesos.
+ *
+ */
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,7 +19,14 @@
 #include "ordenArchivo.h"
 
 
-
+/**
+ * Se encarga de transformar el tipo enumerado modo
+ * a un string que indica el modo en que se abre un 
+ * archivo.
+ * @param modo Indica el modo en que queremos escribir
+ * el archivo (lectura/escritura)
+ * @return Retorna el string que indica el modo (r/w+)
+ */
 char const * modoArchivo(enum modo modo) {
   switch (modo) {
     case M_LECTURA  : return "r" ;
