@@ -1,3 +1,14 @@
+/**
+ * @file ordenArchivo.c
+ * @author Gabriela Limonta 10-10385
+ * @author John Delgado 10-10196
+ *
+ * @section Grupo 09
+ *
+ * Contiene la implementacion de las funciones
+ * que son comunes a ordenar archivos.
+ *
+ */
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,17 +17,30 @@
 
 #include "ordenArchivo.h"
 
+/**
+ * Funcion que reserva memoria segun el modo compilacion
+ *@param cuantos cantidad de enteros
+ *@param tam tamanio de los enteros
+ */
+void * alloc(size_t cuantos, size_t tam) {
+#if DEVELOPMENT
+ return calloc(cuantos, tam);
+#else
+ return malloc(cuantos * tam);
+#endif
+}
+
 
 /**
  * Se encarga de transformar el tipo enumerado modo
  * a un string que indica el modo en que se abre un
  * archivo.
- * @param modo Indica el modo en que queremos escribir
+ * @param modo_ Indica el modo en que queremos escribir
  * el archivo (lectura/escritura)
  * @return Retorna el string que indica el modo (r/w+)
  */
-char const * modoArchivo(enum modo modo) {
-  switch (modo) {
+char const * modoArchivo(enum modo modo_) {
+  switch (modo_) {
     case M_LECTURA  : return "r" ;
     case M_ESCRITURA: return "w+";
     default         : return NULL;
@@ -28,16 +52,16 @@ char const * modoArchivo(enum modo modo) {
  * y luego cerrar el archivo
  * @param datos estructura que contiene los datos que se pasaran como
  * parametros a la funcion dada.
- * @param modo Indica el modo en el que se abrira el archivo, bien sea
+ * @param modo_ Indica el modo en el que se abrira el archivo, bien sea
  * para lectura o para escritura
  * @param nombre Indica el nombre del archivo con el que se trabajara
  * @param funcion Funcion que trabajara con el archivo luego de que
  * apertura se encargue de abrirlo
  * @return Retorna lo que devuelve la ejecucion de la funcion
  */
-void * apertura(void * datos, enum modo const modo, const char * nombre, void * (*funcion)(FILE *, void *)) {
+void * apertura(void * datos, enum modo const modo_, const char * nombre, void * (*funcion)(FILE *, void *)) {
   // Abrimos el archivo para lectura.
-  FILE * archivo = fopen(nombre, modoArchivo(modo));
+  FILE * archivo = fopen(nombre, modoArchivo(modo_));
   // Si el archivo retorna NULL es porque hubo un error en fopen
   // se detiene la ejecucion del programa.
   if (NULL == archivo) {
@@ -64,7 +88,7 @@ void * apertura(void * datos, enum modo const modo, const char * nombre, void * 
  * @param ordenados arreglo temporal que usaremos para ordenar los elementos.
  * @param inicio Entero que indica la posicion inicial del arreglo.
  * @param mitad Entero que indica la posicion media del arreglo.
- * @oaram fin Entero que indica la posicion final del arreglo.
+ * @param fin Entero que indica la posicion final del arreglo.
  */
 void merge(int * desordenados, int * ordenados, int const inicio, int const mitad, int const fin) {
   int i = inicio; // Posicion del arreglo ordenados.
@@ -141,7 +165,7 @@ int particion(int * a, int ini, int fin) {
 
 /**
  * Se encarga de hacer un quicksort sobre el arreglo a.
- * @oaram a Arreglo que vamos a ordenar.
+ * @param a Arreglo que vamos a ordenar.
  * @param ini Posicion inicial del arreglo.
  * @param fin Posicion final del arreglo.
  */

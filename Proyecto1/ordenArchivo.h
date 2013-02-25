@@ -16,22 +16,22 @@
 #include <stdlib.h>
 
 
-#if DEVELOPMENT
-#  define ALLOC(cuantos, tam) (calloc((cuantos),(tam)))
-#else
-#  define ALLOC(cuantos, tam) (malloc((cuantos)*(tam)))
-#endif
-
+/**
+ * Funcion que reserva memoria segun el modo compilacion
+ *@param cuantos cantidad de enteros
+ *@param tam tamanio de los enteros
+ */
+void * alloc(size_t cuantos, size_t tam);
 
 /**
  * Estructura que se utiliza para guardar informacion de
  * cada uno de los nodos.
  */
 struct datos_nodo {
-  int inicio;
-  int fin;
-  int nivel;
-  int id;
+  int inicio; /**<inicio de los datos del nodo*/
+  int fin; /**< fin de los datos del nodo*/
+  int nivel; /**< nivel del nodo*/
+  int id; /**<id del nodo*/
 };
 
 
@@ -73,7 +73,7 @@ void * apertura
  * @param ordenados arreglo temporal que usaremos para ordenar los elementos.
  * @param inicio Entero que indica la posicion inicial del arreglo.
  * @param mitad Entero que indica la posicion media del arreglo.
- * @oaram fin Entero que indica la posicion final del arreglo.
+ * @param fin Entero que indica la posicion final del arreglo.
  */
 void merge
   ( int * desordenados
@@ -86,7 +86,7 @@ void merge
 
 /**
  * Se encarga de hacer un quicksort sobre el arreglo a.
- * @oaram a Arreglo que vamos a ordenar.
+ * @param a Arreglo que vamos a ordenar.
  * @param ini Posicion inicial del arreglo.
  * @param fin Posicion final del arreglo.
  */

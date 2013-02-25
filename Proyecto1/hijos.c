@@ -15,6 +15,10 @@
 
 #include "hijos.h"
 
+/**
+ * Estrutura que guarda la configuracion del archivo
+ */
+
 struct configuracion configuracion;
 
 /**

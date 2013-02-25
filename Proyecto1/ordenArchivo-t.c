@@ -29,12 +29,12 @@
 #include "ordenArchivo.h"
 #include "principales.h"
 
-// Creamos dos arreglos, uno para almacenar la secuencia
-// desordenada y otro para la secuencia ordenada.
-int * ordenados;
-int * desordenados;
+int * ordenados; /**<arreglo global de ordenados*/
+int * desordenados; /**<arreglo global de desordenados*/
 
+//si se encuentra el modo desarrollo activo, se usan estas funciones para el debugging
 #if DEVELOPMENT
+  //funcion que bloquea una seccion critica permitiendo la consistencia de datos
   void lock(pthread_mutex_t * mutex) {
     int s = pthread_mutex_lock(mutex);
     if (s != 0) {
@@ -44,7 +44,7 @@ int * desordenados;
       exit(EX_SOFTWARE);
     }
   }
-
+  //funcion que permite el acceso de nuevo a la seccion critica
   void unlock(pthread_mutex_t * mutex) {
     int s = pthread_mutex_unlock(mutex);
     if (s != 0) {
@@ -55,8 +55,10 @@ int * desordenados;
     }
   }
 
+  //se inicializa el mutex
   pthread_mutex_t mutexSalida = PTHREAD_MUTEX_INITIALIZER;
 
+  //funcion que se usa para imprimir de forma organizada los hilos
   void thread_fprintf(struct datos_nodo * datos_nodo, FILE * file, char const * format, ...) {
     va_list arguments;
     va_start(arguments, format);
@@ -87,6 +89,7 @@ int * desordenados;
 void * hoja(void * datos) {
   struct datos_nodo * datos_nodo = (struct datos_nodo *)datos;
 
+//si se esta en modo desarrollo se usa esta funcion para imprimir con hilos de forma clara
 #if DEVELOPMENT
   thread_fprintf(datos_nodo, stderr, "hoja desordenada; ");
 #endif
@@ -95,6 +98,7 @@ void * hoja(void * datos) {
   // fin - 1 (ambos indicados en datos_nodo.
   quicksort(desordenados, datos_nodo->inicio, datos_nodo->fin - 1);
 
+//si se esta en modo desarrollo se usa esta funcion para imprimir con hilos de forma clara
 #if DEVELOPMENT
   thread_fprintf(datos_nodo, stderr, "hoja ordenada; ");
 #endif
@@ -122,6 +126,7 @@ void * nodo(void * datos) {
   struct datos_nodo datos_izq = {datos_nodo->inicio, mitad          , datos_nodo->nivel + 1, datos_nodo->id * 2 - 1}; //inicializacion de agregados
   struct datos_nodo datos_der = {mitad             , datos_nodo->fin, datos_nodo->nivel + 1, datos_nodo->id * 2    };
 
+//el modo secuencial se usa para el debugging, si no esta definido el proyecto se comporta como el enunciado describe
 #if SEQUENTIAL
   funcionHijos(&datos_izq);
   funcionHijos(&datos_der);
@@ -156,6 +161,7 @@ void * nodo(void * datos) {
   }
 #endif
 
+//si se esta en modo desarrollo se usa esta funcion para imprimir con hilos de forma clara
 #if DEVELOPMENT
   thread_fprintf(datos_nodo, stderr, "nodo desmergeado; mitad: %d; ", mitad);
 #endif
@@ -182,6 +188,7 @@ void * nodo(void * datos) {
     )
   ;
 
+//si se esta en modo desarrollo se usa esta funcion para imprimir con hilos de forma clara
 #if DEVELOPMENT
   thread_fprintf(datos_nodo, stderr, "nodo mergeado; mitad: %d; ", mitad);
 #endif
@@ -208,11 +215,16 @@ void * escritura(FILE * archivo, void * datos) {
 }
 
 
-
+/**
+ * Funcion que se encarga de hacer las primeras llamadas a funciones y de generar
+ * el hilo principal
+ * @param archivo Archivo de lectura
+ * @param datos COnfiguracion de lectura
+ */
 void * principal(FILE * archivo, void * datos) {
   // Pedimos espacio dinamico para el arreglo de desordenados y ordenados
-  desordenados = (int *)ALLOC(configuracion.numEnteros, sizeof(int));
-  ordenados    = (int *)ALLOC(configuracion.numEnteros, sizeof(int));
+  desordenados = (int *)alloc(configuracion.numEnteros, sizeof(int));
+  ordenados    = (int *)alloc(configuracion.numEnteros, sizeof(int));
 
   // Si hay un error, imprimimos un mensaje.
   if (NULL == desordenados || NULL == ordenados) {

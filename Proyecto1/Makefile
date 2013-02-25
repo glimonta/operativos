@@ -17,7 +17,7 @@ executables := $(executables) hoja
 
 all: $(executables)
 
-clean: ; rm -rf $(executables:%="%") ./*.o $$(printf '%s\n' * | grep '^[0-9]\+.txt$$')
+clean: ; rm -rf $(executables:%="%") ./*.o $$(printf '%s\n' * | grep '^[0-9]\+.txt$$') html/
 
 ordenArchivo-t: ordenArchivo-t.o principales.o ordenArchivo.o            ; $(build-exec)
 ordenArchivo-p: ordenArchivo-p.o procesos.o principales.o ordenArchivo.o ; $(build-exec)

@@ -1,3 +1,16 @@
+/**
+ * @file principales.c
+ * @author Gabriela Limonta 10-10385
+ * @author John Delgado 10-10196
+ *
+ * @section Grupo 09
+ *
+ * Contiene la implementacion de las funciones
+ * que son comunes a todas las verificaciones de
+ * pases de argumentos por el main hacia las
+ * estructuras de configuraciones
+ *
+ */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,6 +18,9 @@
 
 #include "principales.h"
 
+/**
+ *Estructura que almacena los datos que se pasan al main ya parseados para ser usados
+ */
 struct configuracion configuracion;
 
 void configurar(int argc, char * argv[]) {

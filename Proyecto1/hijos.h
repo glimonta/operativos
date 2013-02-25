@@ -32,14 +32,15 @@ enum parametros
  * utilizadas por todo el programa.
  */
 struct configuracion {
-  int inicio;
-  int fin;
-  int nivel;
-  int id;
-  int numNiveles;
-  char * archivoDesordenado;
+  int inicio;/**<variable que contiene el indice de inicio de los datos*/
+  int fin; /**<variable que contiene el indice de fin de los datos*/
+  int nivel; /**<se almacena el nivel actual*/
+  int id; /**<se almacena el id del proceso o del hilo*/
+  int numNiveles; /**<variable que contiene el numero total de niveles a generar*/
+  char * archivoDesordenado; /**<nombre de archivo de entrada*/
 };
 
+//variable externa a la cual se puede acceder desde cualquier parte del codigo y es estatica
 extern struct configuracion configuracion;
 
 /**

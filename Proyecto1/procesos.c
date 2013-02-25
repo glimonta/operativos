@@ -23,32 +23,30 @@
  * Se encarga de transformar el tipo enumerado hijo
  * a un string que indica el tipo de hijo que se va
  * a crear.
- * @param hijo Indica el tipo de hijo que queremos
+ * @param hijo_ Indica el tipo de hijo que queremos
  * crear (nodo/hoja)
  * @return Retorna el string que indica el tipo de
  * hijo (nodo/hoja)
  */
-char const * tipoHijo(enum hijo hijo) {
-  switch (hijo) {
-    // Caso en el que es un nodo.
-    case H_NODO: return "./nodo";
-    // Caso en el que es una hoja.
-    case H_HOJA: return "./hoja";
-    default    : return NULL    ;
+char const * tipoHijo(enum hijo hijo_) {
+  switch (hijo_) {
+    case H_NODO: return "./nodo"; /**< Caso en el que es un nodo.*/
+    case H_HOJA: return "./hoja"; /**< Caso en el que es una hoja.*/
+    default    : return NULL    ; /**< caso base*/
   }
 }
 
 
 /**
  * Se encarga de crear los procesos hijos.
- * @param hijo Indica que tipo de hijo vamos a crear.
+ * @param hijo_ Indica que tipo de hijo vamos a crear.
  * @param datos_nodo Datos que se le van a pasar al hijo.
  * @param numNiveles Numero de niveles el arbol de procesos.
  * @param archivoDesordenado Nombre del archivo de donde va
  * a leer el hijo.
  * @return Retorna el pid del hijo.
  */
-pid_t child_create(enum hijo hijo, struct datos_nodo * datos_nodo, int numNiveles, char * archivoDesordenado) {
+pid_t child_create(enum hijo hijo_, struct datos_nodo * datos_nodo, int numNiveles, char * archivoDesordenado) {
   pid_t child = fork();
   // Creamos strings para pasarle los parametros
   // necesarios al exec
@@ -76,8 +74,8 @@ pid_t child_create(enum hijo hijo, struct datos_nodo * datos_nodo, int numNivele
       asprintf(&id    , "%d", datos_nodo->id    );
       asprintf(&numNiv, "%d", numNiveles        );
       execlp
-        ( tipoHijo(hijo)
-        , tipoHijo(hijo)
+        ( tipoHijo(hijo_)
+        , tipoHijo(hijo_)
         , inicio
         , fin
         , nivel
