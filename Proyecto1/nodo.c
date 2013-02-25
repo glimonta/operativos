@@ -23,14 +23,14 @@ struct opcionesLectura {
 
 void * lectura(FILE * archivo, void * datos) {
   struct opcionesLectura opcionesLectura = *((struct opcionesLectura *)datos);
-   int i;
-   for (i = 0; i < opcionesLectura.cantidad; ++i) {
-     if (1 != fscanf(archivo, " %d ", &desordenados[opcionesLectura.inicio + i])) {
-       perror("fscanf");
-       exit(EX_IOERR);
-     }
-   }
-   return NULL;
+  int i;
+  for (i = 0; i < opcionesLectura.cantidad; ++i) {
+    if (1 != fscanf(archivo, " %d ", &desordenados[opcionesLectura.inicio + i])) {
+      perror("fscanf");
+      exit(EX_IOERR);
+    }
+  }
+  return NULL;
 }
 
 
