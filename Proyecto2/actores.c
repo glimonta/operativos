@@ -6,6 +6,7 @@
 #include <sys/file.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <string.h>
 
 #include "actores.h"
 
@@ -41,6 +42,64 @@ int validoEsp(Direccion direccion) {
   return -1 != direccion->pid;
 }
 
+void liberaDireccion(Direccion direccion) {
+  if (validoEsc(direccion)) close(direccion->fdEsc);
+  if (validoLec(direccion)) close(direccion->fdLec);
+}
+
+void agregaMensaje(Mensaje * mensaje, void * fuente, int cantidad) {
+  if (NULL == (mensaje->contenido = realloc(mensaje->contenido, mensaje->longitud + cantidad))) {
+    perror("realloc");
+    exit(EX_OSERR);
+  }
+  memcpy(mensaje->contenido + mensaje->longitud, fuente, cantidad);
+  mensaje->longitud += cantidad;
+}
+
+Mensaje serializarDireccion(Direccion direccion) {
+  Mensaje mensaje = {};
+
+  agregaMensaje(&mensaje, &direccion->fdLec, sizeof(direccion->fdLec));
+  agregaMensaje(&mensaje, &direccion->fdEsc, sizeof(direccion->fdEsc));
+  agregaMensaje(&mensaje, &direccion->pid  , sizeof(direccion->pid));
+
+  return mensaje;
+}
+
+Direccion deserializarDireccion(Mensaje mensaje) {
+  int fdLec = *((int *)mensaje.contenido);
+  int fdEsc = *((int *)(mensaje.contenido + sizeof(int)));
+  pid_t pid = *((pid_t *)(mensaje.contenido + sizeof(int) * 2));
+
+  return crearDireccion(fdLec, fdEsc, pid);
+}
+
+
+
+Mensaje mkMensaje
+  ( ssize_t longitud
+  , void * contenido
+  )
+{
+  Mensaje mensaje = { longitud, contenido };
+  return mensaje;
+}
+
+
+
+Actor mkActor
+  ( Actor (*actor)(Mensaje mensajito, void * datos)
+  , void * datos
+  )
+{
+  Actor actorSaliente = { actor, datos };
+  return actorSaliente;
+}
+
+Actor finActor() {
+  return mkActor(NULL, NULL);
+}
+
 void correActor(Actor actor) {
   if (!actor.actor) return;
   Mensaje mensajito;
@@ -69,7 +128,7 @@ void correActor(Actor actor) {
     void * contenido = mensajito.contenido;
 
     while (longitud > 0) {
-      int leido = read(yo->fdEsc, contenido, longitud);
+      int leido = read(yo->fdLec, contenido, longitud);
       if (-1 == leido) {
         perror("read");
         exit(EX_IOERR);
@@ -81,6 +140,8 @@ void correActor(Actor actor) {
 
   correActor(actor.actor(mensajito, actor.datos));
 }
+
+
 
 Direccion crear(Actor actor) {
   enum indicePipes { P_ESCRITURA = 1, P_LECTURA = 0 };
@@ -106,8 +167,9 @@ Direccion crear(Actor actor) {
       yo = crearDireccion(pipeAbajo[P_LECTURA], pipeAbajo[P_ESCRITURA], -1);
 
       if (papa) {
-        Mensaje mensajito = { sizeof(papa), &papa };
-        enviar(yo, mensajito);
+        Mensaje mensaje = serializarDireccion(papa);
+        enviar(yo, mensaje);
+        free(mensaje.contenido);
       }
 
       correActor(actor);
