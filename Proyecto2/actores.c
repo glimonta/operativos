@@ -1,12 +1,16 @@
 #include <errno.h>
-#include <unistd.h>
+#include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sysexits.h>
 #include <sys/file.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <string.h>
+#include <unistd.h>
 
 #include "actores.h"
 
@@ -21,8 +25,8 @@ Direccion yo;
 Direccion crearDireccion(int fdLec, int fdEsc, pid_t pid) {
   Direccion direccion = malloc(sizeof(struct direccion));
   if (NULL == direccion) {
-    perror("malloc");
-    exit(EX_OSERR);
+    // en caso de que falle se devuelve NULL y se asigna errno con ENOMEM
+    return NULL;
   }
   direccion->fdLec = fdLec;
   direccion->fdEsc = fdEsc;
@@ -47,13 +51,14 @@ void liberaDireccion(Direccion direccion) {
   if (validoLec(direccion)) close(direccion->fdLec);
 }
 
-void agregaMensaje(Mensaje * mensaje, void * fuente, int cantidad) {
+int agregaMensaje(Mensaje * mensaje, void * fuente, int cantidad) {
   if (NULL == (mensaje->contenido = realloc(mensaje->contenido, mensaje->longitud + cantidad))) {
-    perror("realloc");
-    exit(EX_OSERR);
+    //esta funcion puede fallar con -1 en ese caso define errno con un valor apropiado. (ENOMEM)
+    return -1;
   }
   memcpy(mensaje->contenido + mensaje->longitud, fuente, cantidad);
   mensaje->longitud += cantidad;
+  return 0;
 }
 
 Mensaje serializarDireccion(Direccion direccion) {
@@ -148,11 +153,24 @@ Direccion crear(Actor actor) {
   int pipeAbajo[2];
   pipe(pipeAbajo);
 
+  int shmid = shmget(IPC_PRIVATE, sizeof(sem_t), S_IRUSR | S_IWUSR);
+  if (-1 == shmid) {
+    perror("shmget");
+    exit(EX_OSERR);
+  }
+  sem_t * sem = shmat(shmid, NULL, 0);
+  if (!sem) {
+    perror("shmat");
+    exit(EX_OSERR);
+  }
+
+  sem_init(sem, 1, 0);
+
   pid_t pid;
   switch (pid = fork()) {
     case -1: {
-      perror("fork");
-      exit(EX_OSERR);
+      // puede fallar por cualquiera de las razones por las que fork pueda fallar
+      return NULL;
     }
 
     case 0: {
@@ -172,6 +190,8 @@ Direccion crear(Actor actor) {
         free(mensaje.contenido);
       }
 
+      sem_post(sem);
+
       correActor(actor);
       exit(EX_OK);
     }
@@ -179,50 +199,61 @@ Direccion crear(Actor actor) {
     default: {
       close(pipeAbajo[P_LECTURA]);
       Direccion nuevoActor = crearDireccion(-1, pipeAbajo[P_ESCRITURA], pid);
+      sem_wait(sem);
       return nuevoActor;
     }
   }
 }
 
-void enviar(Direccion direccion, Mensaje mensaje) {
+int enviar(Direccion direccion, Mensaje mensaje) {
+  int retorno = 0;
   if (!validoEsc(direccion)) {
+    // falla cuando no tengo permiso para escribir, entonces se asigna errno con EPERM y retorna -1
     errno = EPERM;
-    perror("enviar");
-    exit(EX_NOPERM);
+    return -1;
   }
 
   //TODO check errors :(
   flock(direccion->fdEsc, LOCK_EX);
   //Seccion critica :)
-  {
+  while (1) {
     if (-1 == write(direccion->fdEsc, &mensaje.longitud, sizeof(mensaje.longitud))) {
-      perror("write");
-      exit(EX_IOERR);
+      if (EINTR == errno) continue;
+      //puede fallar por cualquiera de las razones que falla write excepto EINTR, en ese caso se repite el ciclo hasta que haga algo
+      retorno = -1;
+      break;
     }
 
     while (mensaje.longitud > 0) {
       int escrito = write(direccion->fdEsc, mensaje.contenido, mensaje.longitud);
       if (-1 == escrito) {
-        perror("write");
-        exit(EX_IOERR);
+        if (EINTR == errno) continue;
+        //puede fallar por cualquiera de las razones que falla write excepto EINTR, en ese caso se repite el ciclo hasta que haga algo
+        retorno = -1;
+        break;
       }
       mensaje.longitud -= escrito;
       mensaje.contenido += escrito;
     }
+    break;
   }
   //TODO check errors :(
   flock(direccion->fdEsc, LOCK_UN);
+  return retorno;
 }
 
-void esperar(Direccion direccion) {
+int esperar(Direccion direccion) {
   if (!validoEsp(direccion)) {
     errno = EPERM;
-    perror("esperar");
-    exit(EX_NOPERM);
+    // falla cuando no hay permiso, se retorna -1 y se asigna EPERM a errno.
+    return -1;
   }
 
-  if (-1 == waitpid(direccion->pid, NULL, 0)) {
-    perror("waitpid");
-    exit(EX_OSERR);
+  while (1) {
+    if (-1 == waitpid(direccion->pid, NULL, 0)) {
+      if (EINTR == errno) continue;
+      // falla cuando falla waitpid y no es EINTR entonces se retorna -1 y se le pone el valor adecuado a errno
+      return -1;
+    }
   }
 }

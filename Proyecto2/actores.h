@@ -36,10 +36,11 @@ Actor finActor();
 
 
 
-void enviar(Direccion, Mensaje);
+int enviar(Direccion, Mensaje);
 Direccion crear(Actor);
-void esperar(Direccion);
+int esperar(Direccion);
 Direccion deserializarDireccion(Mensaje);
-void agregaMensaje(Mensaje * mensaje, void * fuente, int cantidad);
+
+int agregaMensaje(Mensaje * mensaje, void * fuente, int cantidad);
 
 #endif
