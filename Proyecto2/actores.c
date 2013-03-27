@@ -14,11 +14,12 @@
 
 #include "actores.h"
 
-struct direccion {
-  int fdLec;
-  int fdEsc;
-  pid_t pid;
-};
+// DEBUG: descomentar esto
+//struct direccion {
+//  int fdLec;
+//  int fdEsc;
+//  pid_t pid;
+//};
 
 Direccion yo;
 
@@ -35,20 +36,21 @@ Direccion crearDireccion(int fdLec, int fdEsc, pid_t pid) {
 }
 
 int validoEsc(Direccion direccion) {
-  return -1 != direccion->fdEsc;
+  return direccion && -1 != direccion->fdEsc;
 }
 
 int validoLec(Direccion direccion) {
-  return -1 != direccion->fdLec;
+  return direccion && -1 != direccion->fdLec;
 }
 
 int validoEsp(Direccion direccion) {
-  return -1 != direccion->pid;
+  return direccion && -1 != direccion->pid;
 }
 
 void liberaDireccion(Direccion direccion) {
-  if (validoEsc(direccion)) close(direccion->fdEsc);
-  if (validoLec(direccion)) close(direccion->fdLec);
+  //if (validoEsc(direccion)) close(direccion->fdEsc);
+  //if (validoLec(direccion)) close(direccion->fdLec);
+  free(direccion);
 }
 
 int agregaMensaje(Mensaje * mensaje, void * fuente, int cantidad) {
@@ -77,6 +79,11 @@ Direccion deserializarDireccion(Mensaje mensaje) {
   pid_t pid = *((pid_t *)(mensaje.contenido + sizeof(int) * 2));
 
   return crearDireccion(fdLec, fdEsc, pid);
+}
+
+Direccion miDireccion() {
+  if (!yo) return NULL;
+  return crearDireccion(-1, yo->fdEsc, -1);
 }
 
 
@@ -148,7 +155,12 @@ void correActor(Actor actor) {
 
 
 
-Direccion crear(Actor actor) {
+Direccion crearActor(Actor actor, int enlazar) {
+  if (enlazar && !yo) {
+    errno = ENXIO;
+    return NULL;
+  }
+
   enum indicePipes { P_ESCRITURA = 1, P_LECTURA = 0 };
   int pipeAbajo[2];
   pipe(pipeAbajo);
@@ -184,13 +196,15 @@ Direccion crear(Actor actor) {
       }
       yo = crearDireccion(pipeAbajo[P_LECTURA], pipeAbajo[P_ESCRITURA], -1);
 
-      if (papa) {
+      if (enlazar && papa) {
         Mensaje mensaje = serializarDireccion(papa);
         enviar(yo, mensaje);
         free(mensaje.contenido);
       }
 
       sem_post(sem);
+
+      liberaDireccion(papa);
 
       correActor(actor);
       exit(EX_OK);
@@ -205,6 +219,21 @@ Direccion crear(Actor actor) {
   }
 }
 
+Direccion crear(Actor actor) {
+  return crearActor(actor, 1);
+}
+
+Direccion crearSinEnlazar(Actor actor) {
+  return crearActor(actor, 0);
+}
+
+
+
+
+
+
+
+
 int enviar(Direccion direccion, Mensaje mensaje) {
   int retorno = 0;
   if (!validoEsc(direccion)) {
@@ -218,6 +247,7 @@ int enviar(Direccion direccion, Mensaje mensaje) {
   //Seccion critica :)
   while (1) {
     if (-1 == write(direccion->fdEsc, &mensaje.longitud, sizeof(mensaje.longitud))) {
+      printf("error de write; fd = %d\n", direccion->fdEsc); //DEBUG
       if (EINTR == errno) continue;
       //puede fallar por cualquiera de las razones que falla write excepto EINTR, en ese caso se repite el ciclo hasta que haga algo
       retorno = -1;
@@ -242,6 +272,10 @@ int enviar(Direccion direccion, Mensaje mensaje) {
   return retorno;
 }
 
+int enviarme(Mensaje mensaje) {
+  return enviar(yo, mensaje);
+}
+
 int esperar(Direccion direccion) {
   if (!validoEsp(direccion)) {
     errno = EPERM;
@@ -249,11 +283,15 @@ int esperar(Direccion direccion) {
     return -1;
   }
 
+  int foo;
   while (1) {
-    if (-1 == waitpid(direccion->pid, NULL, 0)) {
+    if (-1 == (foo = waitpid(direccion->pid, NULL, 0))) {
       if (EINTR == errno) continue;
       // falla cuando falla waitpid y no es EINTR entonces se retorna -1 y se le pone el valor adecuado a errno
       return -1;
     }
+    break;
   }
+
+  return 0;
 }

@@ -15,12 +15,15 @@
 #include "actores.h"
 
 
+
 typedef
   struct instruccion {
     enum selectorInstruccion
       { SI_INVALIDO
       , SI_MUERE
+      , SI_PROMPT
       , SI_IMPRIME
+      , SI_IMPRIMEYPROMPT
       , SI_RM
       , SI_LS
       , SI_MKDIR
@@ -31,6 +34,7 @@ typedef
       , SI_MV
       , SI_WRITE
       , SI_ERROR
+      , SI_ERRORYPROMPT
       }
       selector
     ;
@@ -62,19 +66,22 @@ typedef
 
 void mostrarInstruccion(Instruccion instruccion) {
   switch (instruccion.selector) {
-    case SI_INVALIDO: { printf("Instruccion { .selector = inválido" " }\n"); } break;
-    case SI_MUERE   : { printf("Instruccion { .selector = muere"    " }\n"); } break;
-    case SI_IMPRIME : { printf("Instruccion { .selector = imprime"  ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
-    case SI_FIND    : { printf("Instruccion { .selector = find"     ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
-    case SI_CAT     : { printf("Instruccion { .selector = cat"      ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
-    case SI_MKDIR   : { printf("Instruccion { .selector = mkdir"    ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
-    case SI_LS      : { printf("Instruccion { .selector = ls"       ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
-    case SI_RMDIR   : { printf("Instruccion { .selector = rmdir"    ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
-    case SI_RM      : { printf("Instruccion { .selector = rm"       ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
-    case SI_MV      : { printf("Instruccion { .selector = mv"       ", .argumentos.dosPath = { .fuente = %s, destino = %s }\n",instruccion.argumentos.dosPath.fuente, instruccion.argumentos.dosPath.destino); } break;
-    case SI_CP      : { printf("Instruccion { .selector = cp"       ", .argumentos.dosPath = { .fuente = %s, destino = %s }\n",instruccion.argumentos.dosPath.fuente, instruccion.argumentos.dosPath.destino); } break;
-    case SI_WRITE   : { printf("Instruccion { .selector = write"    ", .argumentos.datosPath = { .camino = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosPath.camino, (int)instruccion.argumentos.datosPath.longitud, instruccion.argumentos.datosPath.texto); } break;
-    case SI_ERROR   : { printf("Instruccion { .selector = inválido" ", .argumentos.error.codigo = %d }\n", instruccion.argumentos.error.codigo); } break;
+    case SI_INVALIDO       : { printf("Instruccion { .selector = inválido"       " }\n"); } break;
+    case SI_MUERE          : { printf("Instruccion { .selector = muere"          " }\n"); } break;
+    case SI_PROMPT         : { printf("Instruccion { .selector = prompt"         " }\n"); } break;
+    case SI_IMPRIME        : { printf("Instruccion { .selector = imprime"        ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
+    case SI_IMPRIMEYPROMPT : { printf("Instruccion { .selector = imprimeyprompt" ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
+    case SI_FIND           : { printf("Instruccion { .selector = find"           ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
+    case SI_CAT            : { printf("Instruccion { .selector = cat"            ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
+    case SI_MKDIR          : { printf("Instruccion { .selector = mkdir"          ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
+    case SI_LS             : { printf("Instruccion { .selector = ls"             ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
+    case SI_RMDIR          : { printf("Instruccion { .selector = rmdir"          ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
+    case SI_RM             : { printf("Instruccion { .selector = rm"             ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
+    case SI_MV             : { printf("Instruccion { .selector = mv"             ", .argumentos.dosPath = { .fuente = %s, destino = %s }\n",instruccion.argumentos.dosPath.fuente, instruccion.argumentos.dosPath.destino); } break;
+    case SI_CP             : { printf("Instruccion { .selector = cp"             ", .argumentos.dosPath = { .fuente = %s, destino = %s }\n",instruccion.argumentos.dosPath.fuente, instruccion.argumentos.dosPath.destino); } break;
+    case SI_WRITE          : { printf("Instruccion { .selector = write"          ", .argumentos.datosPath = { .camino = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosPath.camino, (int)instruccion.argumentos.datosPath.longitud, instruccion.argumentos.datosPath.texto); } break;
+    case SI_ERROR          : { printf("Instruccion { .selector = error"          ", .argumentos.error.codigo = %d }\n", instruccion.argumentos.error.codigo); } break;
+    case SI_ERRORYPROMPT   : { printf("Instruccion { .selector = erroryprompt"   ", .argumentos.error.codigo = %d }\n", instruccion.argumentos.error.codigo); } break;
   }
 }
 
@@ -83,10 +90,11 @@ Mensaje serializar(Instruccion instruccion) {
 
   agregaMensaje(&mensaje, &instruccion.selector, sizeof(enum selectorInstruccion));
   switch (instruccion.selector) {
-    case SI_IMPRIME: {
+    case SI_IMPRIME:
+    case SI_IMPRIMEYPROMPT:
       agregaMensaje(&mensaje, &instruccion.argumentos.datos.longitud, sizeof(ssize_t));
       agregaMensaje(&mensaje, instruccion.argumentos.datos.texto, instruccion.argumentos.datos.longitud * sizeof(char));
-    } break;
+      break;
 
     case SI_RM   :
     case SI_RMDIR:
@@ -113,9 +121,10 @@ Mensaje serializar(Instruccion instruccion) {
       agregaMensaje(&mensaje, instruccion.argumentos.datosPath.texto, instruccion.argumentos.datos.longitud * sizeof(char));
     } break;
 
-    case SI_ERROR: {
+    case SI_ERROR:
+    case SI_ERRORYPROMPT:
       agregaMensaje(&mensaje, &instruccion.argumentos.error.codigo, sizeof(int));
-    } break;
+      break;
 
     default: break;
   }
@@ -131,6 +140,7 @@ Instruccion deserializar(Mensaje mensaje) {
   mensaje.contenido += sizeof(enum selectorInstruccion);
   switch (instruccion.selector) {
     case SI_IMPRIME:
+    case SI_IMPRIMEYPROMPT:
       instruccion.argumentos.datos.longitud = *(ssize_t *)mensaje.contenido; mensaje.contenido += sizeof(ssize_t);
       instruccion.argumentos.datos.texto = (char *)mensaje.contenido; mensaje.contenido += instruccion.argumentos.datos.longitud * sizeof(char);
       break;
@@ -161,6 +171,7 @@ Instruccion deserializar(Mensaje mensaje) {
       break;
 
     case SI_ERROR:
+    case SI_ERRORYPROMPT:
       instruccion.argumentos.error.codigo = *(int *)mensaje.contenido; mensaje.contenido += sizeof(int);
       break;
 
@@ -246,27 +257,51 @@ Instruccion instruccionError(enum selectorInstruccion selector, int codigo) {
   return instruccion;
 }
 
-Instruccion c_muere  ()                                              { return instruccionSimple   (SI_MUERE                           ); }
-Instruccion c_imprime(char * texto)                                  { return instruccionDatos    (SI_IMPRIME, strlen(texto), texto   ); }
-Instruccion c_ls     (char * camino)                                 { return instruccionUnPath   (SI_LS     , camino                 ); }
-Instruccion c_mkDir  (char * camino)                                 { return instruccionUnPath   (SI_MKDIR  , camino                 ); }
-Instruccion c_rm     (char * camino)                                 { return instruccionUnPath   (SI_RM     , camino                 ); }
-Instruccion c_rmdir  (char * camino)                                 { return instruccionUnPath   (SI_RMDIR  , camino                 ); }
-Instruccion c_find   (char * camino)                                 { return instruccionUnPath   (SI_FIND   , camino                 ); }
-Instruccion c_cat    (char * camino)                                 { return instruccionUnPath   (SI_CAT    , camino                 ); }
-Instruccion c_mv     (char * fuente, char * destino)                 { return instruccionDosPath  (SI_MV     , fuente, destino        ); }
-Instruccion c_cp     (char * fuente, char * destino)                 { return instruccionDosPath  (SI_CP     , fuente, destino        ); }
-Instruccion c_write  (char * camino, ssize_t longitud, char * texto) { return instruccionDatosPath(SI_WRITE  , camino, longitud, texto); }
-Instruccion c_error  (int codigo)                                    { return instruccionError    (SI_ERROR  , codigo                 ); }
+Instruccion c_muere         ()                                              { return instruccionSimple   (SI_MUERE                                  ); }
+Instruccion c_prompt        ()                                              { return instruccionSimple   (SI_PROMPT                                 ); }
+Instruccion c_imprime       (char * texto)                                  { return instruccionDatos    (SI_IMPRIME       , strlen(texto), texto   ); }
+Instruccion c_imprimeyprompt(char * texto)                                  { return instruccionDatos    (SI_IMPRIMEYPROMPT, strlen(texto), texto   ); }
+Instruccion c_ls            (char * camino)                                 { return instruccionUnPath   (SI_LS            , camino                 ); }
+Instruccion c_mkDir         (char * camino)                                 { return instruccionUnPath   (SI_MKDIR         , camino                 ); }
+Instruccion c_rm            (char * camino)                                 { return instruccionUnPath   (SI_RM            , camino                 ); }
+Instruccion c_rmdir         (char * camino)                                 { return instruccionUnPath   (SI_RMDIR         , camino                 ); }
+Instruccion c_find          (char * camino)                                 { return instruccionUnPath   (SI_FIND          , camino                 ); }
+Instruccion c_cat           (char * camino)                                 { return instruccionUnPath   (SI_CAT           , camino                 ); }
+Instruccion c_mv            (char * fuente, char * destino)                 { return instruccionDosPath  (SI_MV            , fuente, destino        ); }
+Instruccion c_cp            (char * fuente, char * destino)                 { return instruccionDosPath  (SI_CP            , fuente, destino        ); }
+Instruccion c_write         (char * camino, ssize_t longitud, char * texto) { return instruccionDatosPath(SI_WRITE         , camino, longitud, texto); }
+Instruccion c_error         (int codigo)                                    { return instruccionError    (SI_ERROR         , codigo                 ); }
+Instruccion c_erroryprompt  (int codigo)                                    { return instruccionError    (SI_ERRORYPROMPT  , codigo                 ); }
+
+Instruccion (*constructorInstruccion(enum selectorInstruccion selectorInstruccion))() {
+  switch (selectorInstruccion) {
+    case SI_MUERE         : return c_muere         ;
+    case SI_PROMPT        : return c_prompt        ;
+    case SI_IMPRIME       : return c_imprime       ;
+    case SI_IMPRIMEYPROMPT: return c_imprimeyprompt;
+    case SI_LS            : return c_ls            ;
+    case SI_MKDIR         : return c_mkDir         ;
+    case SI_RM            : return c_rm            ;
+    case SI_RMDIR         : return c_rmdir         ;
+    case SI_FIND          : return c_find          ;
+    case SI_CAT           : return c_cat           ;
+    case SI_MV            : return c_mv            ;
+    case SI_CP            : return c_cp            ;
+    case SI_WRITE         : return c_write         ;
+    case SI_ERROR         : return c_error         ;
+    case SI_ERRORYPROMPT  : return c_erroryprompt  ;
+    default: return NULL;
+  }
+}
 
 
 
+Direccion frontController;
 Direccion impresora;
 Direccion raiz;
 
 void muere() {
-  enviarInstruccion(raiz, c_muere());
-  enviarInstruccion(impresora, c_muere());
+  enviarInstruccion(frontController, c_muere());
 }
 
 
@@ -314,12 +349,13 @@ void do_rm(char * camino) {
     switch (errno) {
       case EFAULT:
       case ENOMEM:
-        enviarInstruccion(raiz, c_muere());
-        break;
+        muere();
+        return;
 
       default: break;
     }
   }
+  enviarInstruccion(frontController, c_prompt());
 }
 
 void do_rmdir(char * camino) {
@@ -329,12 +365,13 @@ void do_rmdir(char * camino) {
     switch (errno) {
       case EFAULT:
       case ENOMEM:
-        enviarInstruccion(raiz, c_muere());
-        break;
+        muere();
+        return;
 
       default: break;
     }
   }
+  enviarInstruccion(frontController, c_prompt());
 }
 
 char * chomp(char * s) {
@@ -351,58 +388,73 @@ void do_ls(char * camino) {
     switch (errno) {
       case EFAULT:
       case ENOMEM:
-        enviarInstruccion(raiz, c_muere());
-        break;
+        muere();
+        return;
 
-      default: break;
+      default:
+        enviarInstruccion(frontController, c_prompt());
+        return;
     }
   }
 
   char * user;
   if (!getpwuid(stats.st_uid)) {
-    //FIXME verificar errores
-    asprintf(&user, "%s", getpwuid(stats.st_uid)->pw_name);
+    if (-1 == asprintf(&user, "%s", getpwuid(stats.st_uid)->pw_name)) {
+      enviarInstruccion(impresora, c_erroryprompt(errno));
+      return;
+    }
   } else {
-    //FIXME verificar errores
-    asprintf(&user, "%d", stats.st_uid);
+    if (-1 == asprintf(&user, "%d", stats.st_uid)) {
+      enviarInstruccion(impresora, c_erroryprompt(errno));
+      return;
+    }
   }
 
   char * group;
   if (!getgrgid(stats.st_gid)) {
-    //FIXME verificar errores
-    asprintf(&group, "%s", getgrgid(stats.st_gid)->gr_name);
+    if (0 > asprintf(&group, "%s", getgrgid(stats.st_gid)->gr_name)) {
+      enviarInstruccion(impresora, c_erroryprompt(errno));
+      free(user);
+      return;
+    }
   } else {
-    //FIXME verificar errores
-    asprintf(&group, "%d", stats.st_gid);
+    if (0 > asprintf(&group, "%d", stats.st_gid)) {
+      enviarInstruccion(impresora, c_erroryprompt(errno));
+      free(user);
+      return;
+    }
   }
 
   char * texto;
-  //FIXME verificar errores
-  asprintf
-    ( &texto
-    , "%c%c%c%c%c%c%c%c%c%c %d %s %s %d %s %s\n"
-    , S_ISDIR(stats.st_mode)  ? 'd' : '-'
-    , S_IRUSR & stats.st_mode ? 'r' : '-'
-    , S_IWUSR & stats.st_mode ? 'w' : '-'
-    , S_IXUSR & stats.st_mode ? 'x' : '-'
-    , S_IRGRP & stats.st_mode ? 'r' : '-'
-    , S_IWGRP & stats.st_mode ? 'w' : '-'
-    , S_IXGRP & stats.st_mode ? 'x' : '-'
-    , S_IROTH & stats.st_mode ? 'r' : '-'
-    , S_IWOTH & stats.st_mode ? 'w' : '-'
-    , S_IXOTH & stats.st_mode ? 'x' : '-'
-    , (int)stats.st_nlink
-    , user
-    , group
-    , (int)stats.st_blocks
-    , chomp(ctime(&stats.st_mtime))
-    , camino
-    )
-  ;
+  if (0 >
+    asprintf
+      ( &texto
+      , "%c%c%c%c%c%c%c%c%c%c %d %s %s %d %s %s\n"
+      , S_ISDIR(stats.st_mode)  ? 'd' : '-'
+      , S_IRUSR & stats.st_mode ? 'r' : '-'
+      , S_IWUSR & stats.st_mode ? 'w' : '-'
+      , S_IXUSR & stats.st_mode ? 'x' : '-'
+      , S_IRGRP & stats.st_mode ? 'r' : '-'
+      , S_IWGRP & stats.st_mode ? 'w' : '-'
+      , S_IXGRP & stats.st_mode ? 'x' : '-'
+      , S_IROTH & stats.st_mode ? 'r' : '-'
+      , S_IWOTH & stats.st_mode ? 'w' : '-'
+      , S_IXOTH & stats.st_mode ? 'x' : '-'
+      , (int)stats.st_nlink
+      , user
+      , group
+      , (int)stats.st_blocks
+      , chomp(ctime(&stats.st_mtime))
+      , camino
+      )
+  ) {
+    enviarInstruccion(impresora, c_erroryprompt(errno));
+  } else {
+    enviarInstruccion(impresora, c_imprimeyprompt(texto));
+    free(texto);
+  }
   free(user);
   free(group);
-  enviarInstruccion(impresora, c_imprime(texto));
-  free(texto);
 }
 
 void descender(void (*accion)(char *), Instruccion instruccion) {
@@ -414,10 +466,9 @@ void descender(void (*accion)(char *), Instruccion instruccion) {
     ++colaDeCamino;
     Direccion subDirectorio;
     if ((subDirectorio = buscarLibreta(instruccion.argumentos.unPath.camino))) {
-      enviarInstruccion(subDirectorio, c_rm(colaDeCamino));
+      enviarInstruccion(subDirectorio, (constructorInstruccion(instruccion.selector))(colaDeCamino));
     } else {
-      enviarInstruccion(impresora, c_imprime("No se encuentra el archivo\n"));
-      // FIXME: usar errno
+      enviarInstruccion(impresora, c_imprimeyprompt("No se encuentra el archivo\n"));
     }
   }
 }
@@ -442,7 +493,7 @@ Actor despachar(Mensaje mensaje, void * datos) {
 
     case SI_RM   : descender(do_rm   , instruccion); break;
     case SI_RMDIR: descender(do_rmdir, instruccion); break;
-    case SI_LS   : mostrarInstruccion(instruccion); descender(do_ls   , instruccion); break;
+    case SI_LS   : descender(do_ls   , instruccion); break;
 
 
     case SI_FIND:
@@ -475,7 +526,7 @@ Actor contratar(Mensaje mensaje, void * datos) {
   struct dirent ** listaVacia;
   if (-1 == scandir(".", &listaVacia, filter, NULL)) {
     enviarInstruccion(impresora, c_error(errno)); // TODO: enviar "scandir" vía c_error
-    enviarInstruccion(yo, c_muere());
+    muere();
     free(mensaje.contenido);
     return mkActor(despachar, datos);
   }
@@ -548,14 +599,27 @@ Actor imprimir(Mensaje mensaje, void * datos) {
       fflush(stdout);
     } break;
 
-    case SI_ERROR: {
+    case SI_IMPRIMEYPROMPT: {
+      fwrite(instruccion.argumentos.datos.texto, sizeof(char), instruccion.argumentos.datos.longitud, stdout);
+      fflush(stdout);
+      enviarInstruccion(frontController, c_prompt());
+    } break;
+
+    case SI_ERROR:
       errno = instruccion.argumentos.error.codigo;
       perror(NULL);
-    } break;
+      break;
+
+    case SI_ERRORYPROMPT:
+      errno = instruccion.argumentos.error.codigo;
+      perror(NULL);
+      enviarInstruccion(frontController, c_prompt());
+      break;
 
     default:
       break;
   }
+
   free(mensaje.contenido);
   return mkActor(imprimir, datos);
 }
@@ -671,11 +735,11 @@ Comando fetch() {
 
 
 void comandoInvalido(Comando * comando) {
-  enviarInstruccion(impresora, c_imprime("Comando inválido\n"));
+  enviarInstruccion(impresora, c_imprimeyprompt("Comando inválido\n"));
   comando->selector = SC_INVALIDO;
 }
 
-void repl() {
+void prompt() {
   Comando comando = fetch();
 
   switch (comando.selector) {
@@ -723,12 +787,65 @@ void repl() {
       break;
 
     default:
-      enviarInstruccion(impresora, c_imprime("Por implementar\n")); //FIXME
+      enviarInstruccion(impresora, c_imprimeyprompt("Instruccion no encontrada\n"));
+      break;
+  }
+}
+
+
+
+Actor accionFrontController(Mensaje mensaje, void * datos) {
+  Instruccion instruccion = deserializar(mensaje);
+
+  switch (instruccion.selector) {
+    case SI_MUERE: {
+      enviarInstruccion(raiz, c_muere());
+      enviarInstruccion(impresora, c_muere());
+      esperar(impresora);
+      esperar(raiz);
+      return finActor();
+    }
+
+    case SI_PROMPT:
+      prompt();
+      break;
+
+    default:
       break;
   }
 
-  if (SC_QUIT != comando.selector) repl();
+  free(mensaje.contenido);
+  return mkActor(accionFrontController, datos);
 }
+
+Actor inicioFrontController(Mensaje mensaje, void * datos) {
+  frontController = miDireccion();
+
+  impresora = crearSinEnlazar(mkActor(imprimir, NULL));
+  if (!impresora) {
+    muere();
+  }
+
+  raiz = crearSinEnlazar(mkActor(contratar, NULL));
+  if (!raiz) {
+    enviarInstruccion(impresora, c_error(errno));
+    muere();
+  }
+
+  if (-1 == enviar(raiz, mensaje)) {
+    enviarInstruccion(impresora, c_error(errno));
+    muere();
+  }
+
+  enviarInstruccion(frontController, c_prompt());
+
+  free(mensaje.contenido);
+  return mkActor(accionFrontController, datos);
+}
+
+
+
+
 
 int main(int argc, char * argv[]) {
   if (2 != argc) {
@@ -736,28 +853,19 @@ int main(int argc, char * argv[]) {
     exit(EX_USAGE);
   }
 
-  impresora = crear(mkActor(imprimir, NULL));
-  if (!impresora) {
+  frontController = crearSinEnlazar(mkActor(inicioFrontController, NULL));
+  if (!frontController) {
     perror("crear");
     exit(EX_IOERR);
   }
 
-  raiz = crear(mkActor(contratar, NULL));
-  if (!raiz) {
-    enviarInstruccion(impresora, c_muere());
-    perror("crear");
-    exit(EX_IOERR);
-  }
+  printf("el verdadero fdEsc del frontController es %d\n", frontController->fdEsc); //DEBUG
 
-  if (-1 == enviar(raiz, mkMensaje(strlen(argv[1]), argv[1]))) {
+  if (-1 == enviar(frontController, mkMensaje(strlen(argv[1]), argv[1]))) {
     perror("enviar");
     exit(EX_IOERR);
   }
 
-  repl();
-
-  muere();
-  esperar(impresora);
-  esperar(raiz);
+  esperar(frontController);
   exit(EX_OK);
 }

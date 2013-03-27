@@ -1,11 +1,17 @@
 #ifndef ACTORES_H
 #define ACTORES_H
 
+// DEBUG: borrar esto!
+struct direccion {
+  int fdLec;
+  int fdEsc;
+  pid_t pid;
+};
+
 typedef struct direccion * Direccion;
 
-extern Direccion yo;
-
 void liberaDireccion(Direccion direccion);
+Direccion miDireccion();
 
 
 typedef struct mensaje {
@@ -37,7 +43,9 @@ Actor finActor();
 
 
 int enviar(Direccion, Mensaje);
+int enviarme(Mensaje);
 Direccion crear(Actor);
+Direccion crearSinEnlazar(Actor);
 int esperar(Direccion);
 Direccion deserializarDireccion(Mensaje);
 
