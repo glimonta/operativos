@@ -12,7 +12,7 @@ test: $(pruebas)
 	diff <(./prueba) <(seq 0 10) || { echo 'TEST FAILED: prueba'; false; }
 
 %.o: %.c ; $(CC) $(COPTS) -c $<
-$(ejecutables): %: ; $(CC) $(COPTS) -o $@ $^
+$(ejecutables) $(pruebas): %: ; $(CC) $(COPTS) -o $@ $^
 
 prueba: actores.o prueba.o
 fssh  : actores.o main.o

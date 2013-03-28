@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <grp.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -257,21 +258,23 @@ Instruccion instruccionError(enum selectorInstruccion selector, int codigo) {
   return instruccion;
 }
 
-Instruccion c_muere         ()                                              { return instruccionSimple   (SI_MUERE                                  ); }
-Instruccion c_prompt        ()                                              { return instruccionSimple   (SI_PROMPT                                 ); }
-Instruccion c_imprime       (char * texto)                                  { return instruccionDatos    (SI_IMPRIME       , strlen(texto), texto   ); }
-Instruccion c_imprimeyprompt(char * texto)                                  { return instruccionDatos    (SI_IMPRIMEYPROMPT, strlen(texto), texto   ); }
-Instruccion c_ls            (char * camino)                                 { return instruccionUnPath   (SI_LS            , camino                 ); }
-Instruccion c_mkDir         (char * camino)                                 { return instruccionUnPath   (SI_MKDIR         , camino                 ); }
-Instruccion c_rm            (char * camino)                                 { return instruccionUnPath   (SI_RM            , camino                 ); }
-Instruccion c_rmdir         (char * camino)                                 { return instruccionUnPath   (SI_RMDIR         , camino                 ); }
-Instruccion c_find          (char * camino)                                 { return instruccionUnPath   (SI_FIND          , camino                 ); }
-Instruccion c_cat           (char * camino)                                 { return instruccionUnPath   (SI_CAT           , camino                 ); }
-Instruccion c_mv            (char * fuente, char * destino)                 { return instruccionDosPath  (SI_MV            , fuente, destino        ); }
-Instruccion c_cp            (char * fuente, char * destino)                 { return instruccionDosPath  (SI_CP            , fuente, destino        ); }
-Instruccion c_write         (char * camino, ssize_t longitud, char * texto) { return instruccionDatosPath(SI_WRITE         , camino, longitud, texto); }
-Instruccion c_error         (int codigo)                                    { return instruccionError    (SI_ERROR         , codigo                 ); }
-Instruccion c_erroryprompt  (int codigo)                                    { return instruccionError    (SI_ERRORYPROMPT  , codigo                 ); }
+Instruccion c_imprimeReal       (int longitud, char * texto)                    { return instruccionDatos    (SI_IMPRIME       , longitud     , texto   ); }
+Instruccion c_imprimeRealyprompt(int longitud, char * texto)                    { return instruccionDatos    (SI_IMPRIMEYPROMPT, longitud     , texto   ); }
+Instruccion c_muere             (void)                                          { return instruccionSimple   (SI_MUERE                                  ); }
+Instruccion c_prompt            (void)                                          { return instruccionSimple   (SI_PROMPT                                 ); }
+Instruccion c_imprime           (char * texto)                                  { return instruccionDatos    (SI_IMPRIME       , strlen(texto), texto   ); }
+Instruccion c_imprimeyprompt    (char * texto)                                  { return instruccionDatos    (SI_IMPRIMEYPROMPT, strlen(texto), texto   ); }
+Instruccion c_ls                (char * camino)                                 { return instruccionUnPath   (SI_LS            , camino                 ); }
+Instruccion c_mkDir             (char * camino)                                 { return instruccionUnPath   (SI_MKDIR         , camino                 ); }
+Instruccion c_rm                (char * camino)                                 { return instruccionUnPath   (SI_RM            , camino                 ); }
+Instruccion c_rmdir             (char * camino)                                 { return instruccionUnPath   (SI_RMDIR         , camino                 ); }
+Instruccion c_find              (char * camino)                                 { return instruccionUnPath   (SI_FIND          , camino                 ); }
+Instruccion c_cat               (char * camino)                                 { return instruccionUnPath   (SI_CAT           , camino                 ); }
+Instruccion c_mv                (char * fuente, char * destino)                 { return instruccionDosPath  (SI_MV            , fuente, destino        ); }
+Instruccion c_cp                (char * fuente, char * destino)                 { return instruccionDosPath  (SI_CP            , fuente, destino        ); }
+Instruccion c_write             (char * camino, ssize_t longitud, char * texto) { return instruccionDatosPath(SI_WRITE         , camino, longitud, texto); }
+Instruccion c_error             (int codigo)                                    { return instruccionError    (SI_ERROR         , codigo                 ); }
+Instruccion c_erroryprompt      (int codigo)                                    { return instruccionError    (SI_ERRORYPROMPT  , codigo                 ); }
 
 Instruccion (*constructorInstruccion(enum selectorInstruccion selectorInstruccion))() {
   switch (selectorInstruccion) {
@@ -457,6 +460,89 @@ void do_ls(char * camino) {
   free(group);
 }
 
+void do_cat(char * camino) {
+  int fd = open(camino, O_RDONLY);
+  if (-1 == fd) {
+    switch (errno) {
+      case EACCES:
+      case EINTR:
+      case ELOOP:
+      case ENAMETOOLONG:
+      case ENODEV:
+      case ENOENT:
+      case ENOTDIR:
+      case EOVERFLOW:
+      case EPERM:
+        enviarInstruccion(impresora, c_erroryprompt(errno));
+        break;
+
+      default:
+        enviarInstruccion(impresora, c_error(errno));
+        muere();
+        break;
+    }
+    close(fd);
+    return;
+  }
+
+  int longitud = 0;
+  char * buffer = NULL;
+  while (1) {
+    char * nuevoBuffer = realloc(buffer, longitud + 1024);
+    if (!nuevoBuffer) {
+      free(buffer);
+      //realloc define errno si falla y entonces llamamos a muere
+      enviarInstruccion(impresora, c_error(errno));
+      close(fd);
+      muere();
+      return;
+    }
+    buffer = nuevoBuffer;
+
+    int leido;
+    while (1) {
+      leido = read(fd, buffer + longitud, 1024);
+      if (-1 == leido) {
+        switch (errno) {
+          case EISDIR:
+          case EINVAL:
+          case EINTR:
+            enviarInstruccion(impresora, c_erroryprompt(errno));
+            break;
+
+          default:
+            enviarInstruccion(impresora, c_error(errno));
+            muere();
+            break;
+        }
+        free(buffer);
+        close(fd);
+        return;
+      }
+      break;
+    }
+    if (0 == leido) break;
+    longitud += leido;
+  }
+
+  close(fd);
+
+  {
+    char * nuevoBuffer = realloc(buffer, longitud);
+    if (!nuevoBuffer) {
+      free(buffer);
+      //realloc define errno si falla y entonces llamamos a muere
+      enviarInstruccion(impresora, c_error(errno));
+      muere();
+      return;
+    }
+    buffer = nuevoBuffer;
+  }
+
+  enviarInstruccion(impresora, c_imprimeRealyprompt(longitud, buffer));
+  free(buffer);
+}
+
 void descender(void (*accion)(char *), Instruccion instruccion) {
   char * colaDeCamino = strchr(instruccion.argumentos.unPath.camino, '/');
   if (!colaDeCamino) {
@@ -494,14 +580,11 @@ Actor despachar(Mensaje mensaje, void * datos) {
     case SI_RM   : descender(do_rm   , instruccion); break;
     case SI_RMDIR: descender(do_rmdir, instruccion); break;
     case SI_LS   : descender(do_ls   , instruccion); break;
+    case SI_CAT  : descender(do_cat  , instruccion); break;
 
 
     case SI_FIND:
       //aqui va el codigo manejador del find
-    break;
-
-    case SI_CAT:
-      //aqui va el codigo manejador del cat
     break;
 
     case SI_CP:
@@ -519,16 +602,18 @@ Actor despachar(Mensaje mensaje, void * datos) {
 }
 
 Actor contratar(Mensaje mensaje, void * datos) {
-  if (-1 == chdir(mensaje.contenido)) {
-    return finActor();
-  }
+  char * punto;
+  asprintf(&punto, ".");
+  insertarLibreta(punto, miDireccion());
 
-  struct dirent ** listaVacia;
-  if (-1 == scandir(".", &listaVacia, filter, NULL)) {
-    enviarInstruccion(impresora, c_error(errno)); // TODO: enviar "scandir" vía c_error
+  if (-1 == chdir(mensaje.contenido)) {
     muere();
-    free(mensaje.contenido);
-    return mkActor(despachar, datos);
+  } else {
+    struct dirent ** listaVacia;
+    if (-1 == scandir(".", &listaVacia, filter, NULL)) {
+      enviarInstruccion(impresora, c_error(errno)); // TODO: enviar "scandir" vía c_error
+      muere();
+    }
   }
 
   free(mensaje.contenido);
@@ -693,6 +778,8 @@ Comando fetch() {
       enviarInstruccion(impresora, c_error(errno)); // TODO: enviar "getline" vía c_error
       muere();
     }
+    comando.selector = SC_QUIT;
+    enviarInstruccion(impresora, c_imprime("\n"));
     return comando;
   }
 
@@ -767,24 +854,14 @@ void prompt() {
   }
 
   switch (comando.selector) {
-    case SC_INVALIDO:
-      break;
+    case SC_INVALIDO: break;
 
-    case SC_QUIT:
-      muere();
-      break;
+    case SC_QUIT: muere(); break;
 
-    case SC_RM:
-      enviarInstruccion(raiz, c_rm(comando.argumento1));
-      break;
-
-    case SC_RMDIR:
-      enviarInstruccion(raiz, c_rmdir(comando.argumento1));
-      break;
-
-    case SC_LS:
-      enviarInstruccion(raiz, c_ls(comando.argumento1));
-      break;
+    case SC_RM   : enviarInstruccion(raiz, c_rm   (comando.argumento1)); break;
+    case SC_RMDIR: enviarInstruccion(raiz, c_rmdir(comando.argumento1)); break;
+    case SC_LS   : enviarInstruccion(raiz, c_ls   (comando.argumento1)); break;
+    case SC_CAT  : enviarInstruccion(raiz, c_cat  (comando.argumento1)); break;
 
     default:
       enviarInstruccion(impresora, c_imprimeyprompt("Instruccion no encontrada\n"));
@@ -858,8 +935,6 @@ int main(int argc, char * argv[]) {
     perror("crear");
     exit(EX_IOERR);
   }
-
-  printf("el verdadero fdEsc del frontController es %d\n", frontController->fdEsc); //DEBUG
 
   if (-1 == enviar(frontController, mkMensaje(strlen(argv[1]), argv[1]))) {
     perror("enviar");

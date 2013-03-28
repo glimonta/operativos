@@ -229,11 +229,6 @@ Direccion crearSinEnlazar(Actor actor) {
 
 
 
-
-
-
-
-
 int enviar(Direccion direccion, Mensaje mensaje) {
   int retorno = 0;
   if (!validoEsc(direccion)) {
