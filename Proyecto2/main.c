@@ -460,7 +460,7 @@ void do_ls(char * camino) {
   free(group);
 }
 
-void do_cat(char * camino) {
+void conContenido(char * camino, void (*funcion)(int longitud, char * buffer, void * datos), void * datos) {
   int fd = open(camino, O_RDONLY);
   if (-1 == fd) {
     switch (errno) {
@@ -539,8 +539,17 @@ void do_cat(char * camino) {
     buffer = nuevoBuffer;
   }
 
-  enviarInstruccion(impresora, c_imprimeRealyprompt(longitud, buffer));
+  funcion(longitud, buffer, datos);
+
   free(buffer);
+}
+
+void hacerCat(int longitud, char * buffer, void * datos) {
+  enviarInstruccion(impresora, c_imprimeRealyprompt(longitud, buffer));
+}
+
+void do_cat(char * camino) {
+  conContenido(camino, hacerCat, NULL);
 }
 
 void descender(void (*accion)(char *), Instruccion instruccion) {
@@ -552,7 +561,15 @@ void descender(void (*accion)(char *), Instruccion instruccion) {
     ++colaDeCamino;
     Direccion subDirectorio;
     if ((subDirectorio = buscarLibreta(instruccion.argumentos.unPath.camino))) {
-      enviarInstruccion(subDirectorio, (constructorInstruccion(instruccion.selector))(colaDeCamino));
+      enviarInstruccion
+        ( subDirectorio
+        , (constructorInstruccion(instruccion.selector))
+          ( colaDeCamino
+          , instruccion.argumentos.datosPath.longitud
+          , instruccion.argumentos.datosPath.texto
+          )
+        )
+      ;
     } else {
       enviarInstruccion(impresora, c_imprimeyprompt("No se encuentra el archivo\n"));
     }
@@ -581,19 +598,19 @@ Actor despachar(Mensaje mensaje, void * datos) {
     case SI_RMDIR: descender(do_rmdir, instruccion); break;
     case SI_LS   : descender(do_ls   , instruccion); break;
     case SI_CAT  : descender(do_cat  , instruccion); break;
-
+    //case SI_WRITE: descender(do_write, instruccion); break;
 
     case SI_FIND:
       //aqui va el codigo manejador del find
-    break;
+      break;
 
     case SI_CP:
       //aqui va el codigo manejador del cp
-    break;
+      break;
 
     case SI_MV:
       //aqui va el codigo manejador del mv
-    break;
+      break;
 
     default: break;
   }
@@ -607,6 +624,7 @@ Actor contratar(Mensaje mensaje, void * datos) {
   insertarLibreta(punto, miDireccion());
 
   if (-1 == chdir(mensaje.contenido)) {
+    enviarInstruccion(impresora, c_error(errno));
     muere();
   } else {
     struct dirent ** listaVacia;
@@ -645,7 +663,7 @@ int filter(struct dirent const * dir) {
 
     int retorno = enviar
       ( subdirectorio
-      , mkMensaje(strlen(dir->d_name), (char *)dir->d_name)
+      , mkMensaje(strlen(dir->d_name) + 1, (char *)dir->d_name)
       )
     ;
     if (-1 == retorno) {
@@ -727,6 +745,7 @@ typedef
   struct comando {
     enum selectorComando
       { SC_INVALIDO = 0
+      , SC_NADA
       , SC_LS
       , SC_CAT
       , SC_CP
@@ -764,7 +783,6 @@ enum selectorComando decodificar(char * texto) {
 
 
 
-
 Comando fetch() {
   Comando comando = {};
 
@@ -786,7 +804,10 @@ Comando fetch() {
   char * cursor = linea;
 
   avanzaHastaNo(isspace, &cursor);
-  if (!*cursor) return comando;
+  if (!*cursor) {
+    comando.selector = SC_NADA;
+    return comando;
+  }
   char * selector = cursor;
   avanzaHasta(isspace, &cursor);
   if (!*cursor) {
@@ -834,6 +855,9 @@ void prompt() {
       comandoInvalido(&comando);
       break;
 
+    case SC_NADA:
+      break;
+
     case SC_QUIT:
       if (comando.argumento1 || comando.argumento2) comandoInvalido(&comando);
       break;
@@ -855,6 +879,10 @@ void prompt() {
 
   switch (comando.selector) {
     case SC_INVALIDO: break;
+
+    case SC_NADA:
+      enviarInstruccion(impresora, c_imprimeyprompt(""));
+      break;
 
     case SC_QUIT: muere(); break;
 
@@ -922,8 +950,6 @@ Actor inicioFrontController(Mensaje mensaje, void * datos) {
 
 
 
-
-
 int main(int argc, char * argv[]) {
   if (2 != argc) {
     fprintf(stderr, "Uso: %s <directorio>\n", argv[0]);
@@ -936,7 +962,7 @@ int main(int argc, char * argv[]) {
     exit(EX_IOERR);
   }
 
-  if (-1 == enviar(frontController, mkMensaje(strlen(argv[1]), argv[1]))) {
+  if (-1 == enviar(frontController, mkMensaje(strlen(argv[1]) + 1, argv[1]))) {
     perror("enviar");
     exit(EX_IOERR);
   }
