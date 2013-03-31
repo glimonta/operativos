@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <grp.h>
 #include <pwd.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -980,7 +981,7 @@ Comando fetch() {
       muere();
     }
     comando.selector = SC_QUIT;
-    orden(c_imprime("\n"));
+    orden(c_imprime("quit\n"));
     return comando;
   }
 
@@ -1146,10 +1147,25 @@ Actor inicioFrontController(Mensaje mensaje, void * datos) {
 
 
 
+void handler(int s) {
+  printf("\nNo es posible matarmme con una señal jijiji >:3 tienes que usar quit\nchelito: ");
+  fflush(stdout);
+}
+
 int main(int argc, char * argv[]) {
   if (2 != argc) {
     fprintf(stderr, "Uso: %s <directorio>\n", argv[0]);
     exit(EX_USAGE);
+  }
+
+  if (SIG_ERR == signal(SIGQUIT, SIG_IGN)) {
+    perror("signal");
+    exit(EX_OSERR);
+  }
+
+  if (SIG_ERR == signal(SIGINT, SIG_IGN)) {
+    perror("signal");
+    exit(EX_OSERR);
   }
 
   frontController = crearSinEnlazar(mkActor(inicioFrontController, NULL));
@@ -1161,6 +1177,16 @@ int main(int argc, char * argv[]) {
   if (-1 == enviar(frontController, mkMensaje(strlen(argv[1]) + 1, argv[1]))) {
     perror("enviar");
     exit(EX_IOERR);
+  }
+
+  if (SIG_ERR == signal(SIGQUIT, handler)) {
+    perror("signal");
+    exit(EX_OSERR);
+  }
+
+  if (SIG_ERR == signal(SIGINT, handler)) {
+    perror("signal");
+    exit(EX_OSERR);
   }
 
   esperar(frontController);
