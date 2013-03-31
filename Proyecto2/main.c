@@ -21,6 +21,7 @@
 Direccion frontController;
 Direccion impresora;
 Direccion raiz;
+int soyRaiz;
 
 
 
@@ -29,6 +30,7 @@ typedef
     enum selectorInstruccion
       { SI_INVALIDO
       , SI_MUERE
+      , SI_TERMINE
       , SI_PROMPT
       , SI_IMPRIME
       , SI_IMPRIMEYPROMPT
@@ -101,6 +103,7 @@ enum formatoInstruccion formatoInstruccion(enum selectorInstruccion selector) {
       return FI_INVALIDO;
 
     case SI_MUERE:
+    case SI_TERMINE:
     case SI_PROMPT:
       return FI_VACIO;
 
@@ -113,11 +116,11 @@ enum formatoInstruccion formatoInstruccion(enum selectorInstruccion selector) {
     case SI_MKDIR:
     case SI_RMDIR:
     case SI_CAT:
-    case SI_FIND:
       return FI_UNPATH;
 
     case SI_CP:
     case SI_MV:
+    case SI_FIND:
       return FI_DOSPATH;
 
     case SI_WRITE:
@@ -137,15 +140,16 @@ void mostrarInstruccion(Instruccion instruccion) {
   switch (instruccion.selector) {
     case SI_INVALIDO      : { printf("Instruccion { .selector = inválido"       " }\n"); } break;
     case SI_MUERE         : { printf("Instruccion { .selector = muere"          " }\n"); } break;
+    case SI_TERMINE       : { printf("Instruccion { .selector = termine"        " }\n"); } break;
     case SI_PROMPT        : { printf("Instruccion { .selector = prompt"         " }\n"); } break;
     case SI_IMPRIME       : { printf("Instruccion { .selector = imprime"        ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
     case SI_IMPRIMEYPROMPT: { printf("Instruccion { .selector = imprimeyprompt" ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
-    case SI_FIND          : { printf("Instruccion { .selector = find"           ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
     case SI_CAT           : { printf("Instruccion { .selector = cat"            ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
     case SI_MKDIR         : { printf("Instruccion { .selector = mkdir"          ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
     case SI_LS            : { printf("Instruccion { .selector = ls"             ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
     case SI_RMDIR         : { printf("Instruccion { .selector = rmdir"          ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
     case SI_RM            : { printf("Instruccion { .selector = rm"             ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
+    case SI_FIND          : { printf("Instruccion { .selector = find"           ", .argumentos.dosPath = { .origen = %s, .origenAbsoluto = %s, destino = %s }\n", instruccion.argumentos.dosPath.origen, instruccion.argumentos.dosPath.origenAbsoluto, instruccion.argumentos.dosPath.destino); } break;
     case SI_MV            : { printf("Instruccion { .selector = mv"             ", .argumentos.dosPath = { .origen = %s, .origenAbsoluto = %s, destino = %s }\n", instruccion.argumentos.dosPath.origen, instruccion.argumentos.dosPath.origenAbsoluto, instruccion.argumentos.dosPath.destino); } break;
     case SI_CP            : { printf("Instruccion { .selector = cp"             ", .argumentos.dosPath = { .origen = %s, .origenAbsoluto = %s, destino = %s }\n", instruccion.argumentos.dosPath.origen, instruccion.argumentos.dosPath.origenAbsoluto, instruccion.argumentos.dosPath.destino); } break;
     case SI_WRITE         : { printf("Instruccion { .selector = write"          ", .argumentos.datosUnPath = { .camino = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosUnPath.camino, (int)instruccion.argumentos.datosUnPath.longitud, instruccion.argumentos.datosUnPath.texto); } break;
@@ -250,7 +254,6 @@ Instruccion deserializar(Mensaje mensaje) {
 void enviarInstruccion(Direccion direccion, Instruccion instruccion) {
   Mensaje mensaje = serializar(instruccion);
   if (-1 == enviar(direccion, mensaje)) {
-    mostrarInstruccion(instruccion);
     perror("enviar");
     exit(EX_IOERR);
   }
@@ -347,6 +350,7 @@ Instruccion instruccionError(enum selectorInstruccion selector, char * texto, in
 Instruccion c_imprimeReal       (int longitud, char * texto)                                    { return instruccionDatos       (SI_IMPRIME       , longitud     , texto            ); }
 Instruccion c_imprimeRealyprompt(int longitud, char * texto)                                    { return instruccionDatos       (SI_IMPRIMEYPROMPT, longitud     , texto            ); }
 Instruccion c_muere             (void)                                                          { return instruccionSimple      (SI_MUERE                                           ); }
+Instruccion c_termine           (void)                                                          { return instruccionSimple      (SI_TERMINE                                         ); }
 Instruccion c_prompt            (void)                                                          { return instruccionSimple      (SI_PROMPT                                          ); }
 Instruccion c_imprime           (char * texto)                                                  { return instruccionDatos       (SI_IMPRIME       , strlen(texto), texto            ); }
 Instruccion c_imprimeyprompt    (char * texto)                                                  { return instruccionDatos       (SI_IMPRIMEYPROMPT, strlen(texto), texto            ); }
@@ -354,8 +358,8 @@ Instruccion c_ls                (char * camino)                                 
 Instruccion c_mkdir             (char * camino)                                                 { return instruccionUnPath      (SI_MKDIR         , camino                          ); }
 Instruccion c_rm                (char * camino)                                                 { return instruccionUnPath      (SI_RM            , camino                          ); }
 Instruccion c_rmdir             (char * camino)                                                 { return instruccionUnPath      (SI_RMDIR         , camino                          ); }
-Instruccion c_find              (char * camino)                                                 { return instruccionUnPath      (SI_FIND          , camino                          ); }
 Instruccion c_cat               (char * camino)                                                 { return instruccionUnPath      (SI_CAT           , camino                          ); }
+Instruccion c_find              (char * origen, char * origenAbsoluto, char * destino)          { return instruccionDosPath     (SI_FIND          , origen, origenAbsoluto, destino ); }
 Instruccion c_cp                (char * origen, char * origenAbsoluto, char * destino)          { return instruccionDosPath     (SI_CP            , origen, origenAbsoluto, destino ); }
 Instruccion c_mv                (char * origen, char * origenAbsoluto, char * destino)          { return instruccionDosPath     (SI_MV            , origen, origenAbsoluto, destino ); }
 Instruccion c_write             (char * camino, ssize_t longitud, char * texto)                 { return instruccionDatosUnPath (SI_WRITE         , camino, longitud, texto         ); }
@@ -366,6 +370,7 @@ Instruccion c_erroryprompt      (char * texto, int codigo)                      
 Instruccion (*constructorInstruccion(enum selectorInstruccion selectorInstruccion))() {
   switch (selectorInstruccion) {
     case SI_MUERE         : return c_muere         ;
+    case SI_TERMINE       : return c_termine       ;
     case SI_PROMPT        : return c_prompt        ;
     case SI_IMPRIME       : return c_imprime       ;
     case SI_IMPRIMEYPROMPT: return c_imprimeyprompt;
@@ -410,7 +415,7 @@ struct libreta * insertarLibreta(char * nombre, Direccion direccion) {
   return nueva;
 }
 
-void liberarLibreta() {
+void liberarLibreta(void) {
   if (!libreta) return;
   struct libreta * siguiente = libreta->siguiente;
   free(libreta->nombre);
@@ -420,13 +425,23 @@ void liberarLibreta() {
   liberarLibreta();
 }
 
-Direccion buscarLibreta(char * nombre) {
+Direccion buscarLibreta(char const * nombre) {
   struct libreta * entLibreta;
   for (entLibreta = libreta; entLibreta; entLibreta = entLibreta->siguiente) {
     if (!strcmp(entLibreta->nombre, nombre)) return entLibreta->direccion;
   }
 
   return NULL;
+}
+
+int contarLibreta(struct libreta * libreta, int acumulador) {
+  if (!libreta) return acumulador;
+  if (strcmp(libreta->nombre, ".") && strcmp(libreta->nombre, "..")) ++acumulador;
+  return contarLibreta(libreta->siguiente, acumulador);
+}
+
+int numeroHijos(void) {
+  return contarLibreta(libreta, 0);
 }
 
 
@@ -469,6 +484,7 @@ void do_rm(Instruccion instruccion) {
 }
 
 void do_rmdir(Instruccion instruccion) {
+  // TODO: matar hijo y quitar de la libreta
   if (-1 == rmdir(instruccion.argumentos.unPath.camino)) {
     switch (errno) {
       case EFAULT:
@@ -665,7 +681,6 @@ void hacerCP(int longitud, char * buffer, void * datos) {
 
 void hacerMV(int longitud, char * buffer, void * datos) {
   Instruccion * instruccion = (Instruccion *)datos;
-  mostrarInstruccion(*instruccion);
   orden(c_writeyborra(instruccion->argumentos.dosPath.destino, instruccion->argumentos.dosPath.origenAbsoluto, longitud, buffer));
 }
 
@@ -762,6 +777,93 @@ void descender(void (*accion)(Instruccion), Instruccion instruccion) {
 
 int filter(struct dirent const * dir);
 
+Instruccion findActual;
+
+int buscar(struct dirent const * dirent) {
+  struct stat infoArchivo;
+  char const * dir = dirent->d_name;
+  if (!strcmp(dir, ".") || !strcmp(dir, "..")) return 0;
+  if (-1 == stat(dir, &infoArchivo)) {
+    switch (errno) {
+      case EFAULT:
+      case ENOMEM:
+      case EBADF:
+        orden(c_error("stat", errno));
+        muere();
+        break;
+
+      default: break;
+    }
+    return 0;
+  }
+
+  char * camino;
+  if (-1 == asprintf(&camino, "%s/%s", findActual.argumentos.dosPath.origen, dirent->d_name)) {
+    return 0;
+  }
+
+  if (strstr(camino, findActual.argumentos.dosPath.destino)) {
+    char * caminoNL;
+    if (-1 == asprintf(&caminoNL, "%s\n", camino)) {
+      return 0;
+    }
+    orden(c_imprime(caminoNL));
+    free(caminoNL);
+  }
+
+  if (S_ISDIR(infoArchivo.st_mode)) {
+    Instruccion instruccionSubdirectorio = findActual;
+    instruccionSubdirectorio.argumentos.dosPath.origen = camino;
+    enviarInstruccion(buscarLibreta(dirent->d_name), instruccionSubdirectorio);
+  }
+
+  free(camino);
+  return 0;
+}
+
+
+
+Actor despachar(Mensaje mensaje, void * datos);
+
+Actor esperarFind(Mensaje mensaje, void * datos) {
+  Instruccion instruccion = deserializar(mensaje);
+  int * numHijos = (int *)datos;
+
+  switch (instruccion.selector) {
+    case SI_MUERE: {
+      struct libreta * entLibreta;
+      for (entLibreta = libreta; entLibreta; entLibreta = entLibreta->siguiente) {
+        enviar(entLibreta->direccion, mensaje);
+      }
+      for (entLibreta = libreta; entLibreta; entLibreta = entLibreta->siguiente) {
+        esperar(entLibreta->direccion);
+      }
+      liberarLibreta();
+      free(mensaje.contenido);
+      free(numHijos);
+      return finActor();
+    }
+
+    case SI_TERMINE:
+      --*numHijos;
+      free(mensaje.contenido);
+      if (0 != *numHijos) {
+        return mkActor(esperarFind, numHijos);
+      }
+
+      if (soyRaiz) orden(c_prompt());
+      else enviarInstruccion(buscarLibreta(".."), c_termine());
+
+      free(numHijos);
+      return mkActor(despachar, NULL);
+
+    default:
+      orden(c_imprime("Error interno\n"));
+      muere();
+      return mkActor(esperarFind, numHijos);
+  }
+}
+
 Actor despachar(Mensaje mensaje, void * datos) {
   Instruccion instruccion = deserializar(mensaje);
 
@@ -775,6 +877,7 @@ Actor despachar(Mensaje mensaje, void * datos) {
         esperar(entLibreta->direccion);
       }
       liberarLibreta();
+      free(mensaje.contenido);
       return finActor();
     }
 
@@ -788,9 +891,28 @@ Actor despachar(Mensaje mensaje, void * datos) {
     case SI_WRITE      : descender(do_write      , instruccion); break;
     case SI_WRITEYBORRA: descender(do_writeyborra, instruccion); break;
 
-    case SI_FIND:
-      // TODO: aqui va el codigo manejador del find
-      break;
+    case SI_FIND: {
+      struct dirent ** listaVacia;
+      findActual = instruccion;
+      if (-1 == scandir(".", &listaVacia, buscar, NULL)) {
+        orden(c_error("scandir", errno));
+        muere();
+      }
+      free(mensaje.contenido);
+      int * hijosEsperar = malloc(sizeof(int));
+      if (!hijosEsperar) {
+        orden(c_error("malloc", errno));
+        muere();
+      }
+      *hijosEsperar = numeroHijos();
+      if (0 == *hijosEsperar) {
+        free(hijosEsperar);
+        if (soyRaiz) orden(c_prompt());
+        else enviarInstruccion(buscarLibreta(".."), c_termine());
+        return mkActor(despachar, datos);
+      }
+      return mkActor(esperarFind, hijosEsperar);
+    }
 
     default: break;
   }
@@ -799,6 +921,13 @@ Actor despachar(Mensaje mensaje, void * datos) {
 }
 
 Actor contratar(Mensaje mensaje, void * datos) {
+  if (!libreta) {
+    soyRaiz = 1;
+    char * puntopunto;
+    asprintf(&puntopunto, "..");
+    insertarLibreta(puntopunto, miDireccion());
+  }
+
   char * punto;
   asprintf(&punto, ".");
   insertarLibreta(punto, miDireccion());
@@ -865,9 +994,11 @@ int filter(struct dirent const * dir) {
 Actor manejarPapa(Mensaje mensaje, void * datos) {
   liberarLibreta();
 
+  soyRaiz = 0;
   char * puntopunto;
   asprintf(&puntopunto, "..");
   insertarLibreta(puntopunto, deserializarDireccion(mensaje));
+
   free(mensaje.contenido);
   return mkActor(contratar, datos);
 }
@@ -987,6 +1118,8 @@ Comando fetch() {
 
   char * cursor = linea;
 
+  // FIXME: no sirve ignorar espacios
+
   avanzaHastaNo(isspace, &cursor);
   if (!*cursor) {
     comando.selector = SC_NADA;
@@ -1079,6 +1212,8 @@ void prompt() {
 
     case SC_CP: orden(c_cp(comando.argumento1, comando.argumento1, comando.argumento2)); break;
     case SC_MV: orden(c_mv(comando.argumento1, comando.argumento1, comando.argumento2)); break;
+
+    case SC_FIND: orden(c_find(".", ".", comando.argumento1)); break;
 
     default:
       orden(c_imprimeyprompt("Instruccion no encontrada\n"));
