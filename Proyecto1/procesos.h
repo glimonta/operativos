@@ -19,9 +19,9 @@
  * o una hoja
  */
 enum hijo
-  { H_NODO /**Hijo de tipo nodo*/
-  , H_HOJA /**Hijo de tipo hoja*/
-  }
+{ H_NODO /**Hijo de tipo nodo*/
+        , H_HOJA /**Hijo de tipo hoja*/
+}
 ;
 
 /**
