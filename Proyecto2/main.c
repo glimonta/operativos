@@ -32,6 +32,7 @@ typedef
       , SI_MUERE
       , SI_TERMINE
       , SI_PROMPT
+      , SI_LSALL
       , SI_IMPRIME
       , SI_IMPRIMEYPROMPT
       , SI_RM
@@ -104,6 +105,7 @@ enum formatoInstruccion formatoInstruccion(enum selectorInstruccion selector) {
     case SI_MUERE:
     case SI_TERMINE:
     case SI_PROMPT:
+    case SI_LSALL:
       return FI_VACIO;
 
     case SI_IMPRIME:
@@ -141,6 +143,7 @@ void mostrarInstruccion(Instruccion instruccion) {
     case SI_MUERE         : { printf("Instruccion { .selector = muere"          " }\n"); } break;
     case SI_TERMINE       : { printf("Instruccion { .selector = termine"        " }\n"); } break;
     case SI_PROMPT        : { printf("Instruccion { .selector = prompt"         " }\n"); } break;
+    case SI_LSALL         : { printf("Instruccion { .selector = lsall"          " }\n"); } break;
     case SI_IMPRIME       : { printf("Instruccion { .selector = imprime"        ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
     case SI_IMPRIMEYPROMPT: { printf("Instruccion { .selector = imprimeyprompt" ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
     case SI_CAT           : { printf("Instruccion { .selector = cat"            ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
@@ -351,6 +354,7 @@ Instruccion c_imprimeRealyprompt(int longitud, char * texto)                    
 Instruccion c_muere             (void)                                                          { return instruccionSimple      (SI_MUERE                                           ); }
 Instruccion c_termine           (void)                                                          { return instruccionSimple      (SI_TERMINE                                         ); }
 Instruccion c_prompt            (void)                                                          { return instruccionSimple      (SI_PROMPT                                          ); }
+Instruccion c_lsall             (void)                                                          { return instruccionSimple      (SI_LSALL                                           ); }
 Instruccion c_imprime           (char * texto)                                                  { return instruccionDatos       (SI_IMPRIME       , strlen(texto), texto            ); }
 Instruccion c_imprimeyprompt    (char * texto)                                                  { return instruccionDatos       (SI_IMPRIMEYPROMPT, strlen(texto), texto            ); }
 Instruccion c_ls                (char * camino)                                                 { return instruccionUnPath      (SI_LS            , camino                          ); }
@@ -374,6 +378,7 @@ Instruccion (*constructorInstruccion(enum selectorInstruccion selectorInstruccio
     case SI_IMPRIME       : return c_imprime       ;
     case SI_IMPRIMEYPROMPT: return c_imprimeyprompt;
     case SI_LS            : return c_ls            ;
+    case SI_LSALL         : return c_lsall         ;
     case SI_MKDIR         : return c_mkdir         ;
     case SI_RM            : return c_rm            ;
     case SI_RMDIR         : return c_rmdir         ;
@@ -532,7 +537,7 @@ void base_ls(char const * camino) {
         return;
 
       default:
-        orden(c_erroryprompt("ls: stat", errno));
+        orden(c_error("ls: stat", errno));
         return;
     }
   }
@@ -540,12 +545,12 @@ void base_ls(char const * camino) {
   char * user;
   if (!getpwuid(stats.st_uid)) {
     if (-1 == asprintf(&user, "%s", getpwuid(stats.st_uid)->pw_name)) {
-      orden(c_erroryprompt("ls: getpwuid", errno));
+      orden(c_error("ls: getpwuid", errno));
       return;
     }
   } else {
     if (-1 == asprintf(&user, "%d", stats.st_uid)) {
-      orden(c_erroryprompt("ls: asprintf", errno));
+      orden(c_error("ls: asprintf", errno));
       return;
     }
   }
@@ -553,13 +558,13 @@ void base_ls(char const * camino) {
   char * group;
   if (!getgrgid(stats.st_gid)) {
     if (0 > asprintf(&group, "%s", getgrgid(stats.st_gid)->gr_name)) {
-      orden(c_erroryprompt("ls: getgrid", errno));
+      orden(c_error("ls: getgrid", errno));
       free(user);
       return;
     }
   } else {
     if (0 > asprintf(&group, "%d", stats.st_gid)) {
-      orden(c_erroryprompt("ls: asprintf", errno));
+      orden(c_error("ls: asprintf", errno));
       free(user);
       return;
     }
@@ -588,7 +593,7 @@ void base_ls(char const * camino) {
       , camino
       )
   ) {
-    orden(c_erroryprompt("ls: asprintf", errno));
+    orden(c_error("ls: asprintf", errno));
   } else {
     orden(c_imprime(texto));
     free(texto);
@@ -619,21 +624,11 @@ void do_ls(Instruccion instruccion) {
   }
 
   if (S_ISDIR(stats.st_mode)) {
-    struct dirent ** listaVacia;
-    if (-1 == scandir(instruccion.argumentos.unPath.camino, &listaVacia, filterLs, NULL)) {
-      if (ENOMEM == errno) {
-        orden(c_error("scandir", errno));
-        muere();
-      } else {
-        orden(c_erroryprompt("scandir", errno));
-      }
-      return;
-    }
+    enviarInstruccion(buscarLibreta(instruccion.argumentos.unPath.camino), c_lsall());
   } else {
     base_ls(instruccion.argumentos.unPath.camino);
+    orden(c_prompt());
   }
-  orden(c_prompt());
-
 }
 
 void conContenido(char * camino, void (*funcion)(int longitud, char * buffer, void * datos), void * datos) {
@@ -970,6 +965,19 @@ Actor despachar(Mensaje mensaje, void * datos) {
 
       return mkActor(esperarFind, hijosEsperar);
     }
+
+    case SI_LSALL: {
+      struct dirent ** listaVacia;
+      if (-1 == scandir(".", &listaVacia, filterLs, NULL)) {
+        if (ENOMEM == errno) {
+          orden(c_error("scandir", errno));
+          muere();
+        } else {
+          orden(c_erroryprompt("scandir", errno));
+        }
+      }
+      orden(c_prompt());
+    } break;
 
     default: break;
   }
