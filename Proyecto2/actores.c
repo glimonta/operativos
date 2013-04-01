@@ -15,13 +15,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
-#include <sys/file.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#if DEBUG
+#include <ctype.h> // DEBUG
+#endif
 
 #include "actores.h"
 
@@ -40,6 +43,7 @@ struct direccion {
   int fdLec; /**< file descriptor de la punta de lectura del pipe   */
   int fdEsc; /**< file descriptor de la punta de escritura del pipe */
   pid_t pid; /**< pid del proceso asociado al actor                 */
+  sem_t * sem;
 };
 
 /**
@@ -63,7 +67,7 @@ Direccion yo;
  * @return Retorna la direccion ya construida en un elemento del tipo Direccion,
  * en caso de error retorna NULL.
  */
-Direccion crearDireccion(int fdLec, int fdEsc, pid_t pid) {
+Direccion crearDireccion(int fdLec, int fdEsc, pid_t pid, sem_t * sem) {
   // Reservamos espacio para la nueva direccion.
   Direccion direccion = malloc(sizeof(struct direccion));
   // Si hay un error al reservar la memoria se  devuelve NULL y
@@ -78,6 +82,7 @@ Direccion crearDireccion(int fdLec, int fdEsc, pid_t pid) {
   direccion->fdLec = fdLec;
   direccion->fdEsc = fdEsc;
   direccion->pid   = pid  ;
+  direccion->sem   = sem  ;
 
   // Retornamos la direccion creada.
   return direccion;
@@ -185,7 +190,8 @@ Mensaje serializarDireccion(Direccion direccion) {
   // el de escritura y el pid)
   agregaMensaje(&mensaje, &direccion->fdLec, sizeof(direccion->fdLec));
   agregaMensaje(&mensaje, &direccion->fdEsc, sizeof(direccion->fdEsc));
-  agregaMensaje(&mensaje, &direccion->pid  , sizeof(direccion->pid));
+  agregaMensaje(&mensaje, &direccion->pid  , sizeof(direccion->pid  ));
+  agregaMensaje(&mensaje, &direccion->sem  , sizeof(direccion->sem  ));
 
   // Retornamos el mensaje construido
   return mensaje;
@@ -215,9 +221,11 @@ Direccion deserializarDireccion(Mensaje mensaje) {
   // obtener el pid
   pid_t pid = *((pid_t *)(mensaje.contenido + sizeof(int) * 2));
 
+  sem_t * sem = *((sem_t * *)(mensaje.contenido + sizeof(int) * 2 + sizeof(pid_t)));
+
   // Retornamos la direccion que se crea con la informacion que sacamos
   // del mensaje.
-  return crearDireccion(fdLec, fdEsc, pid);
+  return crearDireccion(fdLec, fdEsc, pid, sem);
 }
 
 /**
@@ -230,7 +238,7 @@ Direccion miDireccion() {
   if (!yo) return NULL;
   // Sino devolvemos la direccion del actor actual para
   // escribirle mensajes
-  return crearDireccion(-1, yo->fdEsc, -1);
+  return crearDireccion(-1, yo->fdEsc, -1, yo->sem);
 }
 
 
@@ -314,9 +322,10 @@ void correActor(Actor actor) {
     // creamos una variable leido que cuente cuanto se leyo en la iteracion
     // leemos de la punta de lectura del pipe y guardamos en el campo "longitud"
     // del mensajito
-    int leido = read(yo->fdLec, &mensajito.longitud + acumulado, contador);
+    int leido = read(yo->fdLec, (char *)&mensajito.longitud + acumulado, contador);
     // Si hay un error al leer se hace exit y se maneja el error con perror
     if (-1 == leido) {
+      if (EINTR == errno) continue;
       perror("read");
       exit(EX_IOERR);
     }
@@ -336,6 +345,11 @@ void correActor(Actor actor) {
     // del mensaje con malloc, si hay un error haciendo esto se maneja con perror
     // y hace exit.
     if (!(mensajito.contenido = malloc(mensajito.longitud))){
+
+#if DEBUG
+      fprintf(stderr, "longitud de mensaje feo es %ld\n", mensajito.longitud); // DEBUG
+#endif
+
       perror("malloc");
       exit(EX_OSERR);
     }
@@ -343,7 +357,7 @@ void correActor(Actor actor) {
     // Se crean variables auxiliares para la longitud y
     // un apuntador al contenido del mensaje.
     ssize_t longitud = mensajito.longitud;
-    void * contenido = mensajito.contenido;
+    char * contenido = mensajito.contenido;
 
     // Se lee mientras aun queden cosas del contenido por leer.
     while (longitud > 0) {
@@ -352,6 +366,7 @@ void correActor(Actor actor) {
       int leido = read(yo->fdLec, contenido, longitud);
       // Si hay un error leyendo se maneja con perror y se hace exit.
       if (-1 == leido) {
+        if (EINTR == errno) continue;
         perror("read");
         exit(EX_IOERR);
       }
@@ -362,6 +377,11 @@ void correActor(Actor actor) {
     }
   }
 
+#if DEBUG
+  printf("%d recibido: %ld ", getpid(), mensajito.longitud); // DEBUG
+  { int i; for (i = 0; i < mensajito.longitud; ++i) { char c = ((char *)mensajito.contenido)[i]; printf("%d", c); if (isprint(c)) printf("(%c)", c); printf(" "); } printf("\n"); } // DEBUG
+#endif
+
   // Finalmente se ejecuta la funcion que define el comportamiento del actor.
   // La firma de esta funcion indica que esta retorna un actor, este actor es
   // el actor resultante luego de ejecutar la accion de esa funcion. correActor
@@ -370,6 +390,8 @@ void correActor(Actor actor) {
 }
 
 
+
+int enviarMensaje(Direccion direccion, Mensaje mensaje, int lock);
 
 /**
  * Se encarga de crear un nuevo actor en un nuevo proceso.
@@ -456,13 +478,13 @@ Direccion crearActor(Actor actor, int enlazar) {
       // y liberamos el espacio de memoria ocupado por yo.
       if (yo) {
         close(yo->fdLec);
-        papa = crearDireccion(-1, yo->fdEsc, -1);
+        papa = crearDireccion(-1, yo->fdEsc, -1, sem);
         free(yo);
       }
       // Luego creamos la direccion nueva para yo con las puntas de lectura
       // y escritura del pipe y asignamos -1 al campo del pid ya que un proceso
       // no debe esperar por si mismo.
-      yo = crearDireccion(pipeAbajo[P_LECTURA], pipeAbajo[P_ESCRITURA], -1);
+      yo = crearDireccion(pipeAbajo[P_LECTURA], pipeAbajo[P_ESCRITURA], -1, sem);
 
       // Si la direccion del padre existe y piden que se cree al actor enlazado
       // se construye un mensaje que es el primero que recibe el actor, este
@@ -470,16 +492,19 @@ Direccion crearActor(Actor actor, int enlazar) {
       if (enlazar && papa) {
         // Creamos el mensaje serializando la direccion
         Mensaje mensaje = serializarDireccion(papa);
-        // TODO enviar deberia ser cambiado por enviarme
+
         // El actor se envia a si mismo un mensaje con la direccion de su padre.
-        enviar(yo, mensaje);
+        enviarMensaje(yo, mensaje, 0);
         // Liberamos el espacio de memoria ocupado por el contenido del mensaje.
         free(mensaje.contenido);
       }
 
       // hacemos signal porque ya enviamos el mensaje que necesitabamos
       // que llegara de primero.
-      sem_post(sem);
+      if (-1 == sem_post(sem)) {
+        perror("sem_post");
+        exit(EX_SOFTWARE);
+      }
 
       // Una vez utilizado liberamos la dirección del padre.
       liberaDireccion(papa);
@@ -498,11 +523,8 @@ Direccion crearActor(Actor actor, int enlazar) {
       // Creamos la direccion del nuevo actor hijo que creamos. En
       // ella solo incluimos el file descriptor de escritura para que
       // se le pueda escribir al nuevo actor y se incluye su pid.
-      Direccion nuevoActor = crearDireccion(-1, pipeAbajo[P_ESCRITURA], pid);
-      // Esperamos a que se termine de trabajar en el hijo (en caso
-      // de haber enlazado estamos esperando a que se envie el mensaje
-      // con la direccion del padre)
-      sem_wait(sem);
+      Direccion nuevoActor = crearDireccion(-1, pipeAbajo[P_ESCRITURA], pid, sem);
+
       //Retornamos la direccion del nuevo actor.
       return nuevoActor;
     }
@@ -552,7 +574,18 @@ Direccion crearSinEnlazar(Actor actor) {
  * @return retorna 0 si lo hace exitosamente y -1 si
  * hay algun error
  */
-int enviar(Direccion direccion, Mensaje mensaje) {
+
+// FIXME: documentación de esta gente
+
+int enviarMensaje(Direccion direccion, Mensaje mensaje, int lock) {
+
+#if DEBUG
+  if (7 == direccion->fdEsc) {
+    printf("EL %d QUIERE ESCRIBIR AL 7: ", getpid());
+    { int i; for (i = 0; i < mensaje.longitud; ++i) { char c = ((char *)mensaje.contenido)[i]; printf("%d", c); if (isprint(c)) printf("(%c)", c); printf(" "); } printf("\n"); } // DEBUG
+  }
+#endif
+
   // Inicializamos el valor de retorno
   int retorno = 0;
   // Si no tengo permiso para escribirle a ese actor se asigna
@@ -562,12 +595,20 @@ int enviar(Direccion direccion, Mensaje mensaje) {
     return -1;
   }
 
-  //TODO check errors :(
   // Queremos asegurarnos que al momento de escribir en los pipes
   // mas nadie pueda escribir en ellos hasta que se haya escrito el
   // mensaje completo, por ello utilizamos un lock en el file descriptor
   // de escritura de la direccion.
-  flock(direccion->fdEsc, LOCK_EX);
+  if (lock) {
+    while (1) {
+      if (-1 == sem_wait(direccion->sem)) {
+        if (EINTR == errno) continue;
+        perror("sem_wait");
+        exit(EX_OSERR);
+      }
+      break;
+    }
+  }
   // Entramos en la seccion critica
 
   // Se simula una especie de ciclo infinito con una condicion de parada
@@ -612,12 +653,20 @@ int enviar(Direccion direccion, Mensaje mensaje) {
     // Al terminar de escribir todo sale del ciclo infinito con un break
     break;
   }
-  //TODO check errors :(
   // Quitamos el lock del file descriptor ya que terminamos de trabajar
   // en la seccion crítica.
-  flock(direccion->fdEsc, LOCK_UN);
+  if (lock) {
+    if (-1 == sem_post(direccion->sem)) {
+      perror("sem_post");
+      exit(EX_SOFTWARE);
+    }
+  }
   // Retornamos 0 en caso de exito y -1 en caso de error.
   return retorno;
+}
+
+int enviar(Direccion direccion, Mensaje mensaje) {
+  return enviarMensaje(direccion, mensaje, 1);
 }
 
 /**

@@ -1,7 +1,7 @@
 SHELL = bash
 
 .PHONY: all clean test
-COPTS = -Wall -Werror -ggdb -D_GNU_SOURCE -pthread
+COPTS = -Wall -Werror -ggdb -D_GNU_SOURCE -pthread -DDEBUG=$${DEBUG:-0}
 
 ejecutables = fssh
 pruebas = prueba

@@ -75,6 +75,7 @@ typedef
       , SI_MUERE          /**< Instruccion que indica que muera */
       , SI_TERMINE        /**< Instruccion que indica que termino */
       , SI_PROMPT         /**< Instruccion que manda a impirmir un nuevo prompt */
+      , SI_LSALL          /**< Instruccion que manda a hacer ls a todos los archivos de un directorio */
       , SI_IMPRIME        /**< Instruccion que manda a impirmir en pantalla */
       , SI_IMPRIMEYPROMPT /**< Instruccion que manda a impirmir en pantalla y luego un nuevo prompt */
       , SI_RM             /**< Instruccion que manda a hacer rm */
@@ -136,7 +137,6 @@ typedef
        * necesitan dos paths y deben estar acompañadas por datos */
       struct datosDosPath {
         char * destino;         /**< Contiene el path de destino */
-        char * destinoAbsoluto; /**< Contiene la ruta absoluta del destino */
         char * origen;          /**< Contiene el path de origen */
         ssize_t longitud;       /**< Contiene la longitud del texto contenido */
         char * texto;           /**< Contiene el texto (datos) */
@@ -192,6 +192,7 @@ enum formatoInstruccion formatoInstruccion(enum selectorInstruccion selector) {
     case SI_MUERE:
     case SI_TERMINE:
     case SI_PROMPT:
+    case SI_LSALL:
       return FI_VACIO;
 
     // Cuando es un selector de imprime o imprime y prompt, se devuelve
@@ -237,7 +238,7 @@ enum formatoInstruccion formatoInstruccion(enum selectorInstruccion selector) {
   }
 }
 
-
+#if DEBUG
 /**
  * Se encarga de mostrar en pantalla la instruccion y lo que contiene
  * en sus argumentos. Se utiliza al momento de debuggear el codigo.
@@ -251,6 +252,7 @@ void mostrarInstruccion(Instruccion instruccion) {
     case SI_MUERE         : { printf("Instruccion { .selector = muere"          " }\n"); } break;
     case SI_TERMINE       : { printf("Instruccion { .selector = termine"        " }\n"); } break;
     case SI_PROMPT        : { printf("Instruccion { .selector = prompt"         " }\n"); } break;
+    case SI_LSALL         : { printf("Instruccion { .selector = lsall"          " }\n"); } break;
     case SI_IMPRIME       : { printf("Instruccion { .selector = imprime"        ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
     case SI_IMPRIMEYPROMPT: { printf("Instruccion { .selector = imprimeyprompt" ", .argumentos.datos = { .longitud = %d, .texto = %s } }\n", (int)instruccion.argumentos.datos.longitud, instruccion.argumentos.datos.texto); } break;
     case SI_CAT           : { printf("Instruccion { .selector = cat"            ", .argumentos.unPath = { .camino = %s }\n", instruccion.argumentos.unPath.camino); } break;
@@ -262,11 +264,12 @@ void mostrarInstruccion(Instruccion instruccion) {
     case SI_MV            : { printf("Instruccion { .selector = mv"             ", .argumentos.dosPath = { .origen = %s, .origenAbsoluto = %s, destino = %s }\n", instruccion.argumentos.dosPath.origen, instruccion.argumentos.dosPath.origenAbsoluto, instruccion.argumentos.dosPath.destino); } break;
     case SI_CP            : { printf("Instruccion { .selector = cp"             ", .argumentos.dosPath = { .origen = %s, .origenAbsoluto = %s, destino = %s }\n", instruccion.argumentos.dosPath.origen, instruccion.argumentos.dosPath.origenAbsoluto, instruccion.argumentos.dosPath.destino); } break;
     case SI_WRITE         : { printf("Instruccion { .selector = write"          ", .argumentos.datosUnPath = { .camino = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosUnPath.camino, (int)instruccion.argumentos.datosUnPath.longitud, instruccion.argumentos.datosUnPath.texto); } break;
-    case SI_WRITEYBORRA   : { printf("Instruccion { .selector = writeyborra"    ", .argumentos.datosDosPath = { .destino = %s, .destinoAbsoluto = %s, .origen = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosDosPath.destino, instruccion.argumentos.datosDosPath.destinoAbsoluto, instruccion.argumentos.datosDosPath.origen, (int)instruccion.argumentos.datosDosPath.longitud, instruccion.argumentos.datosDosPath.texto); } break;
+    case SI_WRITEYBORRA   : { printf("Instruccion { .selector = writeyborra"    ", .argumentos.datosDosPath = { .destino = %s, .origen = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosDosPath.destino, instruccion.argumentos.datosDosPath.origen, (int)instruccion.argumentos.datosDosPath.longitud, instruccion.argumentos.datosDosPath.texto); } break;
     case SI_ERROR         : { printf("Instruccion { .selector = error"          ", .argumentos.error.codigo = %d }\n", instruccion.argumentos.error.codigo); } break;
     case SI_ERRORYPROMPT  : { printf("Instruccion { .selector = erroryprompt"   ", .argumentos.error.codigo = %d }\n", instruccion.argumentos.error.codigo); } break;
   }
 }
+#endif
 
 /**
  * Se encarga de serializar una instruccion para que
@@ -302,23 +305,23 @@ Mensaje serializar(Instruccion instruccion) {
     // En caso de ser una instruccion que tome un path como argumento
     // se agrega al mensaje el path.
     case FI_UNPATH:
-      agregaMensaje(&mensaje, instruccion.argumentos.unPath.camino               , 1 + strlen(instruccion.argumentos.unPath.camino) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.unPath.camino               , (1 + strlen(instruccion.argumentos.unPath.camino)) * sizeof(char));
       break;
 
     // En caso de ser una instruccion que tome dos paths como argumentos
     // se agregan el path de origen, el path absoluto y finalmente
     // el path de destino al mensaje.
     case FI_DOSPATH:
-      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.origen              , 1 + strlen(instruccion.argumentos.dosPath.origen) * sizeof(char));
-      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.origenAbsoluto      , 1 + strlen(instruccion.argumentos.dosPath.origenAbsoluto) * sizeof(char));
-      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.destino             , 1 + strlen(instruccion.argumentos.dosPath.destino) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.origen              , (1 + strlen(instruccion.argumentos.dosPath.origen)) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.origenAbsoluto      , (1 + strlen(instruccion.argumentos.dosPath.origenAbsoluto)) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.destino             , (1 + strlen(instruccion.argumentos.dosPath.destino)) * sizeof(char));
       break;
 
     // En caso de ser una instruccion que tome un path y datos como
     // argumentos se agrega el path, la longitud del texto y el texto
     // al mensaje.
     case FI_DATOSUNPATH:
-      agregaMensaje(&mensaje, instruccion.argumentos.datosUnPath.camino          , 1 + strlen(instruccion.argumentos.datosUnPath.camino) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.datosUnPath.camino          , (1 + strlen(instruccion.argumentos.datosUnPath.camino)) * sizeof(char));
       agregaMensaje(&mensaje, &instruccion.argumentos.datosUnPath.longitud       , sizeof(ssize_t));
       agregaMensaje(&mensaje, instruccion.argumentos.datosUnPath.texto           , instruccion.argumentos.datosUnPath.longitud * sizeof(char));
       break;
@@ -327,9 +330,8 @@ Mensaje serializar(Instruccion instruccion) {
     // argumentos se agrega el path de destino, el path absoluto de destino,
     // el path de origen, la longitud del texto y el texto al mensaje.
     case FI_DATOSDOSPATH:
-      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.destino        , 1 + strlen(instruccion.argumentos.datosDosPath.destino) * sizeof(char));
-      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.destinoAbsoluto, 1 + strlen(instruccion.argumentos.datosDosPath.destinoAbsoluto) * sizeof(char));
-      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.origen         , 1 + strlen(instruccion.argumentos.datosDosPath.origen) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.destino        , (1 + strlen(instruccion.argumentos.datosDosPath.destino)) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.origen         , (1 + strlen(instruccion.argumentos.datosDosPath.origen)) * sizeof(char));
       agregaMensaje(&mensaje, &instruccion.argumentos.datosDosPath.longitud      , sizeof(ssize_t));
       agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.texto          , instruccion.argumentos.datosDosPath.longitud * sizeof(char));
       break;
@@ -337,7 +339,7 @@ Mensaje serializar(Instruccion instruccion) {
     // En caso de ser una instruccion que indique un error se agrega
     // el texto del error, y el codigo al mensaje.
     case FI_ERROR:
-      agregaMensaje(&mensaje, instruccion.argumentos.error.texto                 , 1 + strlen(instruccion.argumentos.error.texto) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.error.texto                 , (1 + strlen(instruccion.argumentos.error.texto)) * sizeof(char));
       agregaMensaje(&mensaje, &instruccion.argumentos.error.codigo               , sizeof(int));
       break;
 
@@ -383,23 +385,23 @@ Instruccion deserializar(Mensaje mensaje) {
     // Si es una instruccion que contiene un path se lee el path y
     // se guarda en los argumentos de la instruccion.
     case FI_UNPATH:
-      instruccion.argumentos.unPath.camino                = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(instruccion.argumentos.unPath.camino) * sizeof(char);
+      instruccion.argumentos.unPath.camino                = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       break;
 
     // Si es una instruccion que contiene dos paths se lee el path de
     // origen, el path absoluto de origen y el path de destino y se guardan
     // respectivamente en los argumentos de la instruccion.
     case FI_DOSPATH:
-      instruccion.argumentos.dosPath.origen               = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
-      instruccion.argumentos.dosPath.origenAbsoluto       = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
-      instruccion.argumentos.dosPath.destino              = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
+      instruccion.argumentos.dosPath.origen               = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
+      instruccion.argumentos.dosPath.origenAbsoluto       = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
+      instruccion.argumentos.dosPath.destino              = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       break;
 
     // Si es una instruccion que contiene datos y un path se lee el
     // path, la longitud de los datos y el texto y se guardan
     // en los argumentos de la instruccion.
     case FI_DATOSUNPATH:
-      instruccion.argumentos.datosUnPath.camino           = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
+      instruccion.argumentos.datosUnPath.camino           = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       instruccion.argumentos.datosUnPath.longitud         = *(ssize_t *)mensaje.contenido; mensaje.contenido += sizeof(ssize_t);
       instruccion.argumentos.datosUnPath.texto            = (char *)    mensaje.contenido; mensaje.contenido += instruccion.argumentos.datosUnPath.longitud * sizeof(char);
       break;
@@ -409,9 +411,8 @@ Instruccion deserializar(Mensaje mensaje) {
     // origen, la longitud de los datos y el texto y se guarda en
     // los argumentos de la instruccion.
     case FI_DATOSDOSPATH:
-      instruccion.argumentos.datosDosPath.destino         = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
-      instruccion.argumentos.datosDosPath.destinoAbsoluto = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
-      instruccion.argumentos.datosDosPath.origen          = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
+      instruccion.argumentos.datosDosPath.destino         = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
+      instruccion.argumentos.datosDosPath.origen          = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       instruccion.argumentos.datosDosPath.longitud        = *(ssize_t *)mensaje.contenido; mensaje.contenido += sizeof(ssize_t);
       instruccion.argumentos.datosDosPath.texto           = (char *)    mensaje.contenido; mensaje.contenido += instruccion.argumentos.datosDosPath.longitud * sizeof(char);
       break;
@@ -419,7 +420,7 @@ Instruccion deserializar(Mensaje mensaje) {
     // Si es una instruccion de error se lee el texto del error y el
     // codigo del mismo y se guarda en los argumentos de la instruccion.
     case FI_ERROR:
-      instruccion.argumentos.error.texto                  = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
+      instruccion.argumentos.error.texto                  = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       instruccion.argumentos.error.codigo                 = *(int *)    mensaje.contenido; mensaje.contenido += sizeof(int);
       break;
 
@@ -645,6 +646,12 @@ Instruccion c_termine           (void)                                          
  */
 Instruccion c_prompt            (void)                                                          { return instruccionSimple      (SI_PROMPT                                          ); }
 /**
+ * Constructor para la instruccion lsall.
+ * @return Retorna una instruccion creada con el constructor de instruccionSimple
+ * y su selector y camino correspondiente
+ */
+Instruccion c_lsall             (void)                                                          { return instruccionSimple      (SI_LSALL                                           ); }
+/**
  * Constructor para la instruccion que imprime texto
  * @param texto texto que va a imprimir
  * @return Retorna una instruccion creada con el constructor de intruccionDatos
@@ -827,6 +834,21 @@ void liberarLibreta(void) {
   liberarLibreta();
 }
 
+void eliminarCeldaLibreta(char const * nombre) {
+  struct libreta ** actual;
+  for (actual = &libreta; *actual; actual = &(*actual)->siguiente) {
+    if (!strcmp((*actual)->nombre, nombre)) {
+      struct libreta * respaldo = (*actual)->siguiente;
+      free((*actual)->nombre);
+      enviarInstruccion((*actual)->direccion, c_muere());
+      liberaDireccion((*actual)->direccion);
+      free(*actual);
+      *actual = respaldo;
+      return;
+    };
+  }
+}
+
 /**
  * Se encarga de buscar una direccion en la libreta
  * dado el nombre del actor.
@@ -957,7 +979,6 @@ void do_rm(Instruccion instruccion) {
 }
 
 void do_rmdir(Instruccion instruccion) {
-  // TODO: matar hijo y quitar de la libreta
   if (-1 == rmdir(instruccion.argumentos.unPath.camino)) {
     switch (errno) {
       case EFAULT:
@@ -971,6 +992,7 @@ void do_rmdir(Instruccion instruccion) {
         return;
     }
   }
+  eliminarCeldaLibreta(instruccion.argumentos.unPath.camino);
   orden(c_prompt());
 }
 
@@ -997,11 +1019,11 @@ char * chomp(char * s) {
  * @param instruccion instruccion que llega con los argumentos necesarios
  * para eliminar algo.
  */
-void do_ls(Instruccion instruccion) {
+void base_ls(char const * camino) {
   // Creamos una variable que almacene el resultado de hacer
   // stat del archivo.
   struct stat stats;
-  if (-1 == stat(instruccion.argumentos.unPath.camino, &stats)) {
+  if (-1 == stat(camino, &stats)) {
     switch (errno) {
       // Si falla y es un error no recuperable enviamos una orden
       // al front controller que indique que hubo un error
@@ -1014,7 +1036,7 @@ void do_ls(Instruccion instruccion) {
       // Si es recuperable se envia un mensaje al front controller
       // para indicar que hubo un error y que imprima un nuevo prompt
       default:
-        orden(c_erroryprompt("ls: stat", errno));
+        orden(c_error("ls: stat", errno));
         return;
     }
   }
@@ -1027,7 +1049,7 @@ void do_ls(Instruccion instruccion) {
       // si hay un error copiando este nombre a un string
       // entonces enviamos una orden al front controller que indique
       // que hubo un error y que imprima un nuevo prompt
-      orden(c_erroryprompt("ls: getpwuid", errno));
+      orden(c_error("ls: getpwuid", errno));
       return;
     }
   } else {
@@ -1037,7 +1059,7 @@ void do_ls(Instruccion instruccion) {
       // si hay un error copiando este nombre a un string
       // entonces enviamos una orden al front controller que indique
       // que hubo un error y que imprima un nuevo prompt
-      orden(c_erroryprompt("ls: asprintf", errno));
+      orden(c_error("ls: asprintf", errno));
       return;
     }
   }
@@ -1050,7 +1072,7 @@ void do_ls(Instruccion instruccion) {
       // si hay un error copiando este nombre a un string
       // entonces enviamos una orden al front controller que indique
       // que hubo un error y que imprima un nuevo prompt
-      orden(c_erroryprompt("ls: getgrid", errno));
+      orden(c_error("ls: getgrid", errno));
       // Liberamos el espacio utilizado por user antes de retornar
       free(user);
       return;
@@ -1062,7 +1084,7 @@ void do_ls(Instruccion instruccion) {
       // si hay un error copiando este nombre a un string
       // entonces enviamos una orden al front controller que indique
       // que hubo un error y que imprima un nuevo prompt
-      orden(c_erroryprompt("ls: asprintf", errno));
+      orden(c_error("ls: asprintf", errno));
       // Liberamos el espacio utilizado por user antes de retornar
       free(user);
       return;
@@ -1094,22 +1116,51 @@ void do_ls(Instruccion instruccion) {
       , group                                 // nombre del grupo
       , (int)stats.st_blocks                  // tamaño en bloques
       , chomp(ctime(&stats.st_mtime))         // ultima fecha de modificacion
-      , instruccion.argumentos.unPath.camino  // nombre del archivo
+      , camino                                // nombre del archivo
       )
   ) {
     // si hay un error haciendo asprintf se manda una orden al front controller que
     // indica que hubo un error e imprime un nuevo prompt
-    orden(c_erroryprompt("ls: asprintf", errno));
+    orden(c_error("ls: asprintf", errno));
   } else {
     // Si no hay error escribiendo entonces se manda una orden al front controller
     // con texto para imprimir y que luego imprima un prompt en pantalla.
-    orden(c_imprimeyprompt(texto));
+    orden(c_imprime(texto));
     // Libero el espacio ocupado por texto
     free(texto);
   }
   // Libero el espacio ocupado por user y group
   free(user);
   free(group);
+}
+
+int filterLs(struct dirent const * dir) {
+  base_ls(dir->d_name);
+  return 0;
+}
+
+void do_ls(Instruccion instruccion) {
+  struct stat stats;
+  if (-1 == stat(instruccion.argumentos.unPath.camino, &stats)) {
+    switch (errno) {
+      case EFAULT:
+      case ENOMEM:
+        orden(c_error("ls: stat", errno));
+        muere();
+        return;
+
+      default:
+        orden(c_erroryprompt("ls: stat", errno));
+        return;
+    }
+  }
+
+  if (S_ISDIR(stats.st_mode)) {
+    enviarInstruccion(buscarLibreta(instruccion.argumentos.unPath.camino), c_lsall());
+  } else {
+    base_ls(instruccion.argumentos.unPath.camino);
+    orden(c_prompt());
+  }
 }
 
 /**
@@ -1237,6 +1288,7 @@ void conContenido(char * camino, void (*funcion)(int longitud, char * buffer, vo
     if (!nuevoBuffer) {
       // liberamos el espacio ocupado por buffer
       free(buffer);
+      //realloc define errno si falla y entonces llamamos a muere
       orden(c_error("realloc", errno));
       // Llamamos a muere y retornamos.
       muere();
@@ -1360,8 +1412,8 @@ void do_mv(Instruccion instruccion) {
  * @param texto contenido que vamos a escribir en el archivo
  */
 void escribe(char * camino, int longitud, char * texto) {
-// Abrimos el archivo para lectura y escritura, en caso de que no este se crea
-int fd = open(camino, O_RDWR | O_CREAT | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
+  // Abrimos el archivo para lectura y escritura, en caso de que no este se crea
+  int fd = open(camino, O_RDWR | O_CREAT | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
   if (-1 == fd) {
     // Si hubo un error al hacer open
     // y es recuperable enviamos una orden al front controller
@@ -1390,6 +1442,16 @@ int fd = open(camino, O_RDWR | O_CREAT | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
   }
 
   // Utilizamos un ciclo infinito (que no es un ciclo infinto
+/**
+ * Se encarga de manejar el trabajo con archivos.
+ * Lee del archivo y pasa los datos contenidos en el a
+ * una funcion dada que trabajara con estos datos.
+ * @param camino camino del archivo que se va a leer
+ * @param funcion funcion que va a trabajar con el
+ * contenido del archivo luego de leido.
+ * @param datos datos que se le pasan a la funcion
+ * que trabaja con el contenido del archivo.
+ */
   // porque contiene una condicion de parada que asegura una
   // cantidad finita de iteraciones) para asegurarnos de escribir
   // hasta escribir todo lo que se tenga que escribir. Ademas de que
@@ -1440,7 +1502,7 @@ int fd = open(camino, O_RDWR | O_CREAT | O_TRUNC, S_IRWXU | S_IRWXG | S_IRWXO);
  * Se encarga de llamar a escribe para que escriba en el
  * archivo indicado el contenido indicado en la instruccion dada.
  * El path del archivo a donde se va a escribir se encuentra en la
- * instruccion que se recibe como parametro. 
+ * instruccion que se recibe como parametro.
  * @param instruccion instruccion que contiene el path del archivo
  * al que se va a escribir y el contenido que se va a escribir.
  */
@@ -1458,7 +1520,7 @@ void do_write(Instruccion instruccion) {
  * archivo indicado el contenido indicado en la instruccion dada.
  * El path del archivo a donde se va a escribir se encuentra en la
  * instruccion que se recibe como parametro. Adicionalmente se borra
- * el archivo de origen indicado tambien en la instruccion. 
+ * el archivo de origen indicado tambien en la instruccion.
  * @param instruccion instruccion que contiene el path del archivo
  * al que se va a escribir y el contenido que se va a escribir.
  */
@@ -1500,8 +1562,7 @@ void descender(void (*accion)(Instruccion), Instruccion instruccion) {
     // será la direccion de inicio del path de los argumentos de
     // la instruccion
     char * cabezaDeCamino = instruccion.argumentos.unPath.camino;
-    // guardamos en el espacio del path la cola del camino mas un byte
-    instruccion.argumentos.unPath.camino = 1 + colaDeCamino; 
+    instruccion.argumentos.unPath.camino = 1 + colaDeCamino;
     // OJO: esto funciona por el union, pero es medio arriesgado;
     // la idea es que el path que se consume con descender es el
     // que esté al principio de los argumentos, y aunque acá se
@@ -1526,7 +1587,7 @@ void descender(void (*accion)(Instruccion), Instruccion instruccion) {
  * funcion se llama cuando se hace scandir.
  * @param dir contiene informacion de un directorio
  * @return retorna cero siempre
- */ 
+ */
 int filter(struct dirent const * dir);
 
 /**
@@ -1534,7 +1595,7 @@ int filter(struct dirent const * dir);
  * instruccion de find actual, esto nos permite saber en
  * que directorio estamos al momento de hacer find
  */
-Instruccion findActual;
+Instruccion * findActual;
 
 /**
  * Se utiliza para buscar en el directorio
@@ -1551,7 +1612,7 @@ int buscar(struct dirent const * dirent) {
   // Guardamos en dir el nombre del directorio
   char const * dir = dirent->d_name;
   // Si el archivo es el mismo o su padre entonces
-  // retornamos cero 
+  // retornamos cero
   if (!strcmp(dir, ".") || !strcmp(dir, "..")) return 0;
   // Buscamos la informacion del archivo
   if (-1 == stat(dir, &infoArchivo)) {
@@ -1567,7 +1628,7 @@ int buscar(struct dirent const * dirent) {
 
       default: break;
     }
-    // Finalment se retorna cero cuando da error
+    // Finalmente se retorna cero cuando da error
     return 0;
   }
 
@@ -1575,13 +1636,13 @@ int buscar(struct dirent const * dirent) {
   // guardamos el directorio origen del find actual mas el directorio en el
   // que estamos actualmente separados por un "/"
   char * camino;
-  if (-1 == asprintf(&camino, "%s/%s", findActual.argumentos.dosPath.origen, dirent->d_name)) {
+  if (-1 == asprintf(&camino, "%s/%s", findActual->argumentos.dosPath.origen, dirent->d_name)) {
     // Si hay un error haciendo asprintf se retorna cero
     return 0;
   }
 
   // Se compara el camino con el patron buscado en el find
-  if (strstr(camino, findActual.argumentos.dosPath.destino)) {
+  if (strstr(camino, findActual->argumentos.dosPath.destino)) {
     char * caminoNL;
     // Si son iguales se crea un nuevo camino que se encuentre
     // terminado con un new line
@@ -1600,7 +1661,7 @@ int buscar(struct dirent const * dirent) {
     // Si el archivo es un directorio entonces se crea una nueva instruccion
     // para sustituir al find actual y se le cambia el path de origen que
     // ahora sera el camino que se contstruyo
-    Instruccion instruccionSubdirectorio = findActual;
+    Instruccion instruccionSubdirectorio = *findActual;
     instruccionSubdirectorio.argumentos.dosPath.origen = camino;
     // Finalmente se envia una direccion al directorio actual
     // que mande a buscar el patron en sus subdirectorios
@@ -1664,7 +1725,7 @@ Actor esperarFind(Mensaje mensaje, void * datos) {
     }
 
     // Si es una señal de termine, significa que uno de sus hijos termino
-    case SI_TERMINE:
+    case SI_INVALIDO:
       //reduzco en 1 el numero de hijos
       --*numHijos;
       // Libero el espacio ocupado por mensaje.contenido
@@ -1680,7 +1741,7 @@ Actor esperarFind(Mensaje mensaje, void * datos) {
       // Si soy la raiz envio al front controller una orden para que imprima un prompt
       if (soyRaiz) orden(c_prompt());
       // Si no soy la raiz envio una instruccion al padre diciendo que termine
-      else enviarInstruccion(buscarLibreta(".."), c_termine());
+      else enviar(buscarLibreta(".."), mkMensaje(0, NULL));
 
       // Libero el espacio utilizado por numHijos
       // y retorno un actor cuyo comportamiento sea despachar
@@ -1691,7 +1752,7 @@ Actor esperarFind(Mensaje mensaje, void * datos) {
       // Si llega a este codigo es porque hubo un error interno de modo
       // que se envia una orden al front controller para que imprima
       // un mensaje de error y luego ejecuto muere
-      orden(c_imprime("Error interno\n"));
+      orden(c_imprime("esperarFind: mensaje inesperado\n"));
       muere();
       // Finalmente retorno un actor cuyo comportamiento se defina por esperarFind
       return mkActor(esperarFind, numHijos);
@@ -1745,7 +1806,7 @@ Actor despachar(Mensaje mensaje, void * datos) {
     case SI_FIND: {
       struct dirent ** listaVacia;
       // Se actualiza el find actual con la instruccion actual
-      findActual = instruccion;
+      findActual = &instruccion;
       // Se hace scandir con la funcion busca definida anteriormente
       if (-1 == scandir(".", &listaVacia, buscar, NULL)) {
         // Si da error se envia una instruccion al front controller
@@ -1770,12 +1831,12 @@ Actor despachar(Mensaje mensaje, void * datos) {
       if (0 == *hijosEsperar) {
         // Si no tengo que esperar a ningun hijo libero
         // el espacio ocupado por hijosEsperar
-        free(hijosEsperar);
         // Si soy la raiz mando al front controller a imprimir un prompt
         if (soyRaiz) orden(c_prompt());
         // En caso contrario se busca al padre en la liberta y
         // se le envia un mensaje de terminacinon
-        else enviarInstruccion(buscarLibreta(".."), c_termine());
+        else enviar(buscarLibreta(".."), mkMensaje(0, NULL));
+        free(hijosEsperar);
         // retornamos un actor cuyo comportamiento ante el siguiente mensa.
         return mkActor(despachar, datos);
       }
@@ -1783,6 +1844,19 @@ Actor despachar(Mensaje mensaje, void * datos) {
       // y los demas son sus compañeros de cuarto
       return mkActor(esperarFind, hijosEsperar);
     }
+
+    case SI_LSALL: {
+      struct dirent ** listaVacia;
+      if (-1 == scandir(".", &listaVacia, filterLs, NULL)) {
+        if (ENOMEM == errno) {
+          orden(c_error("scandir", errno));
+          muere();
+        } else {
+          orden(c_erroryprompt("scandir", errno));
+        }
+      }
+      orden(c_prompt());
+    } break;
 
     default: break;
   }
