@@ -70,7 +70,6 @@ typedef
       } datosUnPath;
       struct datosDosPath {
         char * destino;
-        char * destinoAbsoluto;
         char * origen;
         ssize_t longitud;
         char * texto;
@@ -135,7 +134,7 @@ enum formatoInstruccion formatoInstruccion(enum selectorInstruccion selector) {
   }
 }
 
-
+#if DEBUG
 void mostrarInstruccion(Instruccion instruccion) {
   switch (instruccion.selector) {
     case SI_INVALIDO      : { printf("Instruccion { .selector = inválido"       " }\n"); } break;
@@ -153,11 +152,12 @@ void mostrarInstruccion(Instruccion instruccion) {
     case SI_MV            : { printf("Instruccion { .selector = mv"             ", .argumentos.dosPath = { .origen = %s, .origenAbsoluto = %s, destino = %s }\n", instruccion.argumentos.dosPath.origen, instruccion.argumentos.dosPath.origenAbsoluto, instruccion.argumentos.dosPath.destino); } break;
     case SI_CP            : { printf("Instruccion { .selector = cp"             ", .argumentos.dosPath = { .origen = %s, .origenAbsoluto = %s, destino = %s }\n", instruccion.argumentos.dosPath.origen, instruccion.argumentos.dosPath.origenAbsoluto, instruccion.argumentos.dosPath.destino); } break;
     case SI_WRITE         : { printf("Instruccion { .selector = write"          ", .argumentos.datosUnPath = { .camino = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosUnPath.camino, (int)instruccion.argumentos.datosUnPath.longitud, instruccion.argumentos.datosUnPath.texto); } break;
-    case SI_WRITEYBORRA   : { printf("Instruccion { .selector = writeyborra"    ", .argumentos.datosDosPath = { .destino = %s, .destinoAbsoluto = %s, .origen = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosDosPath.destino, instruccion.argumentos.datosDosPath.destinoAbsoluto, instruccion.argumentos.datosDosPath.origen, (int)instruccion.argumentos.datosDosPath.longitud, instruccion.argumentos.datosDosPath.texto); } break;
+    case SI_WRITEYBORRA   : { printf("Instruccion { .selector = writeyborra"    ", .argumentos.datosDosPath = { .destino = %s, .origen = %s, .longitud = %d, .texto = %s } }\n", instruccion.argumentos.datosDosPath.destino, instruccion.argumentos.datosDosPath.origen, (int)instruccion.argumentos.datosDosPath.longitud, instruccion.argumentos.datosDosPath.texto); } break;
     case SI_ERROR         : { printf("Instruccion { .selector = error"          ", .argumentos.error.codigo = %d }\n", instruccion.argumentos.error.codigo); } break;
     case SI_ERRORYPROMPT  : { printf("Instruccion { .selector = erroryprompt"   ", .argumentos.error.codigo = %d }\n", instruccion.argumentos.error.codigo); } break;
   }
 }
+#endif
 
 Mensaje serializar(Instruccion instruccion) {
   Mensaje mensaje = {};
@@ -170,31 +170,30 @@ Mensaje serializar(Instruccion instruccion) {
       break;
 
     case FI_UNPATH:
-      agregaMensaje(&mensaje, instruccion.argumentos.unPath.camino               , 1 + strlen(instruccion.argumentos.unPath.camino) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.unPath.camino               , (1 + strlen(instruccion.argumentos.unPath.camino)) * sizeof(char));
       break;
 
     case FI_DOSPATH:
-      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.origen              , 1 + strlen(instruccion.argumentos.dosPath.origen) * sizeof(char));
-      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.origenAbsoluto      , 1 + strlen(instruccion.argumentos.dosPath.origenAbsoluto) * sizeof(char));
-      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.destino             , 1 + strlen(instruccion.argumentos.dosPath.destino) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.origen              , (1 + strlen(instruccion.argumentos.dosPath.origen)) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.origenAbsoluto      , (1 + strlen(instruccion.argumentos.dosPath.origenAbsoluto)) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.dosPath.destino             , (1 + strlen(instruccion.argumentos.dosPath.destino)) * sizeof(char));
       break;
 
     case FI_DATOSUNPATH:
-      agregaMensaje(&mensaje, instruccion.argumentos.datosUnPath.camino          , 1 + strlen(instruccion.argumentos.datosUnPath.camino) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.datosUnPath.camino          , (1 + strlen(instruccion.argumentos.datosUnPath.camino)) * sizeof(char));
       agregaMensaje(&mensaje, &instruccion.argumentos.datosUnPath.longitud       , sizeof(ssize_t));
       agregaMensaje(&mensaje, instruccion.argumentos.datosUnPath.texto           , instruccion.argumentos.datosUnPath.longitud * sizeof(char));
       break;
 
     case FI_DATOSDOSPATH:
-      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.destino        , 1 + strlen(instruccion.argumentos.datosDosPath.destino) * sizeof(char));
-      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.destinoAbsoluto, 1 + strlen(instruccion.argumentos.datosDosPath.destinoAbsoluto) * sizeof(char));
-      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.origen         , 1 + strlen(instruccion.argumentos.datosDosPath.origen) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.destino        , (1 + strlen(instruccion.argumentos.datosDosPath.destino)) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.origen         , (1 + strlen(instruccion.argumentos.datosDosPath.origen)) * sizeof(char));
       agregaMensaje(&mensaje, &instruccion.argumentos.datosDosPath.longitud      , sizeof(ssize_t));
       agregaMensaje(&mensaje, instruccion.argumentos.datosDosPath.texto          , instruccion.argumentos.datosDosPath.longitud * sizeof(char));
       break;
 
     case FI_ERROR:
-      agregaMensaje(&mensaje, instruccion.argumentos.error.texto                 , 1 + strlen(instruccion.argumentos.error.texto) * sizeof(char));
+      agregaMensaje(&mensaje, instruccion.argumentos.error.texto                 , (1 + strlen(instruccion.argumentos.error.texto)) * sizeof(char));
       agregaMensaje(&mensaje, &instruccion.argumentos.error.codigo               , sizeof(int));
       break;
 
@@ -217,31 +216,30 @@ Instruccion deserializar(Mensaje mensaje) {
       break;
 
     case FI_UNPATH:
-      instruccion.argumentos.unPath.camino                = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(instruccion.argumentos.unPath.camino) * sizeof(char);
+      instruccion.argumentos.unPath.camino                = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       break;
 
     case FI_DOSPATH:
-      instruccion.argumentos.dosPath.origen               = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
-      instruccion.argumentos.dosPath.origenAbsoluto       = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
-      instruccion.argumentos.dosPath.destino              = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
+      instruccion.argumentos.dosPath.origen               = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
+      instruccion.argumentos.dosPath.origenAbsoluto       = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
+      instruccion.argumentos.dosPath.destino              = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       break;
 
     case FI_DATOSUNPATH:
-      instruccion.argumentos.datosUnPath.camino           = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
+      instruccion.argumentos.datosUnPath.camino           = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       instruccion.argumentos.datosUnPath.longitud         = *(ssize_t *)mensaje.contenido; mensaje.contenido += sizeof(ssize_t);
       instruccion.argumentos.datosUnPath.texto            = (char *)    mensaje.contenido; mensaje.contenido += instruccion.argumentos.datosUnPath.longitud * sizeof(char);
       break;
 
     case FI_DATOSDOSPATH:
-      instruccion.argumentos.datosDosPath.destino         = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
-      instruccion.argumentos.datosDosPath.destinoAbsoluto = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
-      instruccion.argumentos.datosDosPath.origen          = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
+      instruccion.argumentos.datosDosPath.destino         = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
+      instruccion.argumentos.datosDosPath.origen          = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       instruccion.argumentos.datosDosPath.longitud        = *(ssize_t *)mensaje.contenido; mensaje.contenido += sizeof(ssize_t);
       instruccion.argumentos.datosDosPath.texto           = (char *)    mensaje.contenido; mensaje.contenido += instruccion.argumentos.datosDosPath.longitud * sizeof(char);
       break;
 
     case FI_ERROR:
-      instruccion.argumentos.error.texto                  = (char *)    mensaje.contenido; mensaje.contenido += 1 + strlen(mensaje.contenido) * sizeof(char);
+      instruccion.argumentos.error.texto                  = (char *)    mensaje.contenido; mensaje.contenido += (1 + strlen(mensaje.contenido)) * sizeof(char);
       instruccion.argumentos.error.codigo                 = *(int *)    mensaje.contenido; mensaje.contenido += sizeof(int);
       break;
 
@@ -253,6 +251,7 @@ Instruccion deserializar(Mensaje mensaje) {
 
 void enviarInstruccion(Direccion direccion, Instruccion instruccion) {
   Mensaje mensaje = serializar(instruccion);
+
   if (-1 == enviar(direccion, mensaje)) {
     perror("enviar");
     exit(EX_IOERR);
@@ -425,6 +424,21 @@ void liberarLibreta(void) {
   liberarLibreta();
 }
 
+void eliminarCeldaLibreta(char const * nombre) {
+  struct libreta ** actual;
+  for (actual = &libreta; *actual; actual = &(*actual)->siguiente) {
+    if (!strcmp((*actual)->nombre, nombre)) {
+      struct libreta * respaldo = (*actual)->siguiente;
+      free((*actual)->nombre);
+      enviarInstruccion((*actual)->direccion, c_muere());
+      liberaDireccion((*actual)->direccion);
+      free(*actual);
+      *actual = respaldo;
+      return;
+    };
+  }
+}
+
 Direccion buscarLibreta(char const * nombre) {
   struct libreta * entLibreta;
   for (entLibreta = libreta; entLibreta; entLibreta = entLibreta->siguiente) {
@@ -484,7 +498,6 @@ void do_rm(Instruccion instruccion) {
 }
 
 void do_rmdir(Instruccion instruccion) {
-  // TODO: matar hijo y quitar de la libreta
   if (-1 == rmdir(instruccion.argumentos.unPath.camino)) {
     switch (errno) {
       case EFAULT:
@@ -498,6 +511,7 @@ void do_rmdir(Instruccion instruccion) {
         return;
     }
   }
+  eliminarCeldaLibreta(instruccion.argumentos.unPath.camino);
   orden(c_prompt());
 }
 
@@ -507,9 +521,9 @@ char * chomp(char * s) {
   return s;
 }
 
-void do_ls(Instruccion instruccion) {
+void base_ls(char const * camino) {
   struct stat stats;
-  if (-1 == stat(instruccion.argumentos.unPath.camino, &stats)) {
+  if (-1 == stat(camino, &stats)) {
     switch (errno) {
       case EFAULT:
       case ENOMEM:
@@ -571,16 +585,55 @@ void do_ls(Instruccion instruccion) {
       , group
       , (int)stats.st_blocks
       , chomp(ctime(&stats.st_mtime))
-      , instruccion.argumentos.unPath.camino
+      , camino
       )
   ) {
     orden(c_erroryprompt("ls: asprintf", errno));
   } else {
-    orden(c_imprimeyprompt(texto));
+    orden(c_imprime(texto));
     free(texto);
   }
   free(user);
   free(group);
+}
+
+int filterLs(struct dirent const * dir) {
+  base_ls(dir->d_name);
+  return 0;
+}
+
+void do_ls(Instruccion instruccion) {
+  struct stat stats;
+  if (-1 == stat(instruccion.argumentos.unPath.camino, &stats)) {
+    switch (errno) {
+      case EFAULT:
+      case ENOMEM:
+        orden(c_error("ls: stat", errno));
+        muere();
+        return;
+
+      default:
+        orden(c_erroryprompt("ls: stat", errno));
+        return;
+    }
+  }
+
+  if (S_ISDIR(stats.st_mode)) {
+    struct dirent ** listaVacia;
+    if (-1 == scandir(instruccion.argumentos.unPath.camino, &listaVacia, filterLs, NULL)) {
+      if (ENOMEM == errno) {
+        orden(c_error("scandir", errno));
+        muere();
+      } else {
+        orden(c_erroryprompt("scandir", errno));
+      }
+      return;
+    }
+  } else {
+    base_ls(instruccion.argumentos.unPath.camino);
+  }
+  orden(c_prompt());
+
 }
 
 void conContenido(char * camino, void (*funcion)(int longitud, char * buffer, void * datos), void * datos) {
@@ -777,7 +830,7 @@ void descender(void (*accion)(Instruccion), Instruccion instruccion) {
 
 int filter(struct dirent const * dir);
 
-Instruccion findActual;
+Instruccion * findActual;
 
 int buscar(struct dirent const * dirent) {
   struct stat infoArchivo;
@@ -798,11 +851,11 @@ int buscar(struct dirent const * dirent) {
   }
 
   char * camino;
-  if (-1 == asprintf(&camino, "%s/%s", findActual.argumentos.dosPath.origen, dirent->d_name)) {
+  if (-1 == asprintf(&camino, "%s/%s", findActual->argumentos.dosPath.origen, dirent->d_name)) {
     return 0;
   }
 
-  if (strstr(camino, findActual.argumentos.dosPath.destino)) {
+  if (strstr(camino, findActual->argumentos.dosPath.destino)) {
     char * caminoNL;
     if (-1 == asprintf(&caminoNL, "%s\n", camino)) {
       return 0;
@@ -812,7 +865,7 @@ int buscar(struct dirent const * dirent) {
   }
 
   if (S_ISDIR(infoArchivo.st_mode)) {
-    Instruccion instruccionSubdirectorio = findActual;
+    Instruccion instruccionSubdirectorio = *findActual;
     instruccionSubdirectorio.argumentos.dosPath.origen = camino;
     enviarInstruccion(buscarLibreta(dirent->d_name), instruccionSubdirectorio);
   }
@@ -827,6 +880,7 @@ Actor despachar(Mensaje mensaje, void * datos);
 
 Actor esperarFind(Mensaje mensaje, void * datos) {
   Instruccion instruccion = deserializar(mensaje);
+
   int * numHijos = (int *)datos;
 
   switch (instruccion.selector) {
@@ -844,21 +898,22 @@ Actor esperarFind(Mensaje mensaje, void * datos) {
       return finActor();
     }
 
-    case SI_TERMINE:
+    case SI_INVALIDO:
       --*numHijos;
       free(mensaje.contenido);
+
       if (0 != *numHijos) {
         return mkActor(esperarFind, numHijos);
       }
 
       if (soyRaiz) orden(c_prompt());
-      else enviarInstruccion(buscarLibreta(".."), c_termine());
+      else enviar(buscarLibreta(".."), mkMensaje(0, NULL));
 
       free(numHijos);
       return mkActor(despachar, NULL);
 
     default:
-      orden(c_imprime("Error interno\n"));
+      orden(c_imprime("esperarFind: mensaje inesperado\n"));
       muere();
       return mkActor(esperarFind, numHijos);
   }
@@ -893,7 +948,7 @@ Actor despachar(Mensaje mensaje, void * datos) {
 
     case SI_FIND: {
       struct dirent ** listaVacia;
-      findActual = instruccion;
+      findActual = &instruccion;
       if (-1 == scandir(".", &listaVacia, buscar, NULL)) {
         orden(c_error("scandir", errno));
         muere();
@@ -906,11 +961,13 @@ Actor despachar(Mensaje mensaje, void * datos) {
       }
       *hijosEsperar = numeroHijos();
       if (0 == *hijosEsperar) {
-        free(hijosEsperar);
         if (soyRaiz) orden(c_prompt());
-        else enviarInstruccion(buscarLibreta(".."), c_termine());
+        else enviar(buscarLibreta(".."), mkMensaje(0, NULL));
+
+        free(hijosEsperar);
         return mkActor(despachar, datos);
       }
+
       return mkActor(esperarFind, hijosEsperar);
     }
 
