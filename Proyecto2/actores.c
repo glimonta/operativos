@@ -40,10 +40,10 @@
  * valor de estos campos será -1
  */
 struct direccion {
-  int fdLec; /**< file descriptor de la punta de lectura del pipe   */
-  int fdEsc; /**< file descriptor de la punta de escritura del pipe */
-  pid_t pid; /**< pid del proceso asociado al actor                 */
-  sem_t * sem;
+  int fdLec;   /**< file descriptor de la punta de lectura del pipe   */
+  int fdEsc;   /**< file descriptor de la punta de escritura del pipe */
+  pid_t pid;   /**< pid del proceso asociado al actor                 */
+  sem_t * sem; /**< semaforo*/
 };
 
 /**
@@ -64,6 +64,7 @@ Direccion yo;
  * escriben mensajes al actor, puede ser -1 si no queremos que haya permiso
  * de escritura.
  * @param pid pid del proceso asociado al actor.
+ * @param sem sem del proceso asociado al actor.
  * @return Retorna la direccion ya construida en un elemento del tipo Direccion,
  * en caso de error retorna NULL.
  */
@@ -570,12 +571,11 @@ Direccion crearSinEnlazar(Actor actor) {
  * actor de la direccion dada muera.
  * @param mensaje mensaje que se le enviara al actor
  * @param direccion direccion del actor a quien se va
+ * @param lock lock del actor a quien se va
  * a esperar.
  * @return retorna 0 si lo hace exitosamente y -1 si
  * hay algun error
  */
-
-// FIXME: documentación de esta gente
 
 int enviarMensaje(Direccion direccion, Mensaje mensaje, int lock) {
 

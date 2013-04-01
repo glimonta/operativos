@@ -46,12 +46,12 @@
  * ya que cualquier actor debe ser capaz de enviarle mensajes a
  * cualquiera de estos tres entes principales.
  */
-Direccion frontController;
-Direccion impresora;
-Direccion raiz;
+Direccion frontController; /**< direccion del frontController*/
+Direccion impresora;       /**< direccion de la impresora*/
+Direccion raiz;            /**< direccion de la raiz*/
 // Adicionalmente se crea una variable global que indica si el actor
 // actual está asociado a un directorio que es la raiz.
-int soyRaiz;
+int soyRaiz;               /**< varible que actua como booleano indicando si es o no la raiz*/
 
 
 
@@ -91,7 +91,7 @@ typedef
       , SI_ERROR          /**< Instruccion indica que hubo un error */
       , SI_ERRORYPROMPT   /**< Instruccion indica que hubo un error y luego imprime un prompt */
       }
-      selector
+      selector            /**< variable de selector*/
     ;
 
     /**
@@ -106,14 +106,14 @@ typedef
       struct datos {
         ssize_t longitud; /**< indica la longitud del texto contenido */
         char * texto;     /**< guarda el texto (datos) */
-      } datos;
+      } datos;            /**< variable de datos*/
       /**
        * Estructura que guarda los argumentos cuando las instrucciones
        * necesitan estar acompañadas por un path.
        */
       struct unPath {
         char * camino; /**< Path necesario para la instruccion */
-      } unPath;
+      } unPath;        /**< variable de unPath*/
       /**
        * Estructura que guarda los argumentos cuando las instrucciones
        * necesitan dos paths
@@ -122,7 +122,7 @@ typedef
         char * origen;         /**< Contiene el path de origen */
         char * origenAbsoluto; /**< Contiene la ruta absoluta del origen */
         char * destino;        /**< Contiene el path de destino */
-      } dosPath;
+      } dosPath;               /**< variable de dosPath*/
       /**
        * Estructura que guarda los argumentos cuando las instrucciones necesitan
        * un path y deben estar acompañadas por datos.
@@ -131,7 +131,7 @@ typedef
         char * camino;    /**< Contiene el path */
         ssize_t longitud; /**< Contiene la longitud del texto contenido */
         char * texto;     /**< Contiene el texto (datos) */
-      } datosUnPath;
+      } datosUnPath;      /**< variable de datosunPath*/
       /**
        * Estructura que guarda los argumentos cuando las instrucciones
        * necesitan dos paths y deben estar acompañadas por datos */
@@ -140,7 +140,7 @@ typedef
         char * origen;          /**< Contiene el path de origen */
         ssize_t longitud;       /**< Contiene la longitud del texto contenido */
         char * texto;           /**< Contiene el texto (datos) */
-      } datosDosPath;
+      } datosDosPath;           /**< variable de datosDosPath*/
       /**
        * Estructura que guarda los argumentos cuando la instruccioni es de
        * error.
@@ -148,10 +148,10 @@ typedef
       struct error {
         char * texto; /**< Texto que indica que fallo */
         int codigo;   /**< Codigo de error que arroja */
-      } error;
-    } argumentos;
+      } error;        /**< variable de error*/
+    } argumentos;     /**< variable de argumentos*/
   }
-  Instruccion
+  Instruccion        /**< variable de instruccion*/
 ;
 
 
@@ -1470,9 +1470,9 @@ void do_mv(Instruccion instruccion) {
 /**
  * Se encarga de escribir en un archivo el contenido dado
  * dado el path de ese archivo.
- * @param camino Path del archivo donde vamos a escribir
+ * @param camino camino del archivo donde vamos a escribir
  * @param longitud longitud del texto que vamos a escribir
- * @param texto contenido que vamos a escribir en el archivo
+ * @param texto texto que vamos a escribir en el archivo
  */
 void escribe(char * camino, int longitud, char * texto) {
   // Abrimos el archivo para lectura y escritura, en caso de que no este se crea
@@ -1505,16 +1505,6 @@ void escribe(char * camino, int longitud, char * texto) {
   }
 
   // Utilizamos un ciclo infinito (que no es un ciclo infinto
-/**
- * Se encarga de manejar el trabajo con archivos.
- * Lee del archivo y pasa los datos contenidos en el a
- * una funcion dada que trabajara con estos datos.
- * @param camino camino del archivo que se va a leer
- * @param funcion funcion que va a trabajar con el
- * contenido del archivo luego de leido.
- * @param datos datos que se le pasan a la funcion
- * que trabaja con el contenido del archivo.
- */
   // porque contiene una condicion de parada que asegura una
   // cantidad finita de iteraciones) para asegurarnos de escribir
   // hasta escribir todo lo que se tenga que escribir. Ademas de que
@@ -2169,12 +2159,27 @@ Actor imprimir(Mensaje mensaje, void * datos) {
 }
 
 
-
+/**
+ * Avanza el cursor hasta encontrar el caracter vacio
+ * y que se cumpla el predicado
+ * @param cursor cursor puntero a arreglo de caracteres
+ * @param predicado predicado contenido a mover
+ * @return Retorna un nuevo actor cuyo comportamiento
+ * sea imprimir
+ */
 void avanzaHasta(int (*predicado)(int c), char ** cursor) {
   if (!cursor || !*cursor || '\0' == **cursor || predicado(**cursor)) return;
   ++*cursor; avanzaHasta(predicado, cursor);
 }
 
+/**
+ * Avanza el cursor hasta encontrar el caracter vacio
+ * y que no se cumpla el predicado
+ * @param cursor cursor puntero a arreglo de caracteres
+ * @param predicado predicado contenido a mover
+ * @return Retorna un nuevo actor cuyo comportamiento
+ * sea imprimir
+ */
 void avanzaHastaNo(int (*predicado)(int c), char ** cursor) {
   if (!cursor || !*cursor || '\0' == **cursor || !predicado(**cursor)) return;
   ++*cursor; avanzaHasta(predicado, cursor);
@@ -2215,7 +2220,7 @@ typedef
     char * argumento1; /**< Primer argumento */
     char * argumento2; /**< Segundo argumento */
   }
-  Comando
+  Comando /**< comando */
 ;
 
 /**
@@ -2252,6 +2257,10 @@ enum selectorComando decodificar(char * texto) {
 
 
 
+/**
+ * Se encarga de realizar el parseo de argumentos del main
+ * @return Retorna un comando con la instruccion pasada al prompt
+ */
 Comando fetch() {
   Comando comando = {};
 
@@ -2271,8 +2280,6 @@ Comando fetch() {
   }
 
   char * cursor = linea;
-
-  // FIXME: no sirve ignorar espacios
 
   avanzaHastaNo(isspace, &cursor);
   if (!*cursor) {
@@ -2419,9 +2426,8 @@ void prompt() {
 /**
  * Se encarga de realizar las acciones del
  * front controller.
- * @param mensaje mensaje que le llega al front
- * controller con la instruccion
- * @datos datos con los que trabajara el actor que
+ * @param mensaje mensaje que le llega al front controller con la instruccion
+ * @param datos datos con los que trabajara el actor que
  * retorne
  * @return Retorna un nuevo actor que indica como se comportara
  * el front controller cuando le llegue el proximo mensaje.
