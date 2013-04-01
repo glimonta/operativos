@@ -834,15 +834,30 @@ void liberarLibreta(void) {
   liberarLibreta();
 }
 
+/**
+ * Se encarga de liberar una celda de la libreta; es decir
+ * elimina al actor de la libreta de direcciones, mata al
+ * actor y libera el espacio de memoria que ocupaba su entrada en la libreta.
+ * @param nombre nombre del actor a eliminar
+ */
 void eliminarCeldaLibreta(char const * nombre) {
+  // Creamos un apuntador al nodo actua de la libreta
   struct libreta ** actual;
+  // Recorremos la libreta de direcciones
   for (actual = &libreta; *actual; actual = &(*actual)->siguiente) {
+    // Al conseguir la direccion en la librieta
     if (!strcmp((*actual)->nombre, nombre)) {
+      // Se crea un reespaldo de la cola de la lista
       struct libreta * respaldo = (*actual)->siguiente;
+      // Se libera el espacio ocupado por el nombre
       free((*actual)->nombre);
+      // Se envia una instruccion al actor indicandole que muera
       enviarInstruccion((*actual)->direccion, c_muere());
+      // Se libera la direccion de la libreta
       liberaDireccion((*actual)->direccion);
+      // Liberamos el espacio ocupado por actual
       free(*actual);
+      // Ahora ponemos en el lugar donde estaba actual al respaldo
       *actual = respaldo;
       return;
     };
@@ -978,21 +993,38 @@ void do_rm(Instruccion instruccion) {
   orden(c_prompt());
 }
 
+/**
+ * Se encarga de eliminar un directorio (accion
+ * de rmdir)
+ * @param instruccion que llega con los argumentos
+ * necesarios para realizar rmdir
+ */
 void do_rmdir(Instruccion instruccion) {
+  // Eliminamos el directorio
   if (-1 == rmdir(instruccion.argumentos.unPath.camino)) {
     switch (errno) {
+      // Si hubo un error no recuperable se envia una
+      // orden al front controller para indicar que hubo
+      // un error
       case EFAULT:
       case ENOMEM:
         orden(c_error("rmdir", errno));
         muere();
         return;
 
+      // Si hubo un error recuperable se envia una orden
+      // al front controller para indicar que hubo un error
+      // y que imprima un nuevo prompt
       default:
         orden(c_erroryprompt("rmdir", errno));
         return;
     }
   }
+  // Si eliminamos exitosamente el directorio
+  // quitamos de la libreta de direcciones su direccion.
   eliminarCeldaLibreta(instruccion.argumentos.unPath.camino);
+  // Enviamos una orden al front controller para que
+  // imprima un prompt
   orden(c_prompt());
 }
 
@@ -1016,8 +1048,7 @@ char * chomp(char * s) {
 /**
  * Se encarga de ejercer las funciones que debe cumplir
  * el comando ls.
- * @param instruccion instruccion que llega con los argumentos necesarios
- * para eliminar algo.
+ * @param camino camino sobre el cual se ejercera ls
  */
 void base_ls(char const * camino) {
   // Creamos una variable que almacene el resultado de hacer
@@ -1092,7 +1123,7 @@ void base_ls(char const * camino) {
   }
 
   // Construimos ahora la salida del comando (texto)
-  char * texto
+  char * texto;
   // Se crea un string de formato conteniendo los permisos,
   // el numero de hard links, nombre de usuario, nombre de grupo,
   // tamaño en bloques, ultima fecha de modificacion y finalmente
@@ -1134,31 +1165,63 @@ void base_ls(char const * camino) {
   free(group);
 }
 
+/**
+ * Se encarga de llamar a procesarSubdirectorio, esta
+ * funcion se llama cuando se hace scandir.
+ * @param dir contiene informacion de un directorio
+ * @return retorna cero siempre
+ */
+/**
+ * Se encarga de llamar a base_ls, esta funcion
+ * se llama cuando se hace scandir.
+ * @param dir contiene informacion de un directorio
+ * @return Retorna cero siempre
+ */
 int filterLs(struct dirent const * dir) {
+  // Se llama a base_ls con el nombre del
+  // directorio que se le pasa
   base_ls(dir->d_name);
   return 0;
 }
 
+/**
+ * Se encarga de realizar ls sobre los el archivo o
+ * directorio indicado en instruccion
+ * @param instruccion instruccion que contiene la informacion
+ * necesaria para hacer el ls
+ */
 void do_ls(Instruccion instruccion) {
+  // Se hace stat del archivo para ver informacion importante acerca
+  // del mismo
   struct stat stats;
   if (-1 == stat(instruccion.argumentos.unPath.camino, &stats)) {
     switch (errno) {
+      // En caso de que falle por algun error no recuperable se envia
+      // una orden al front controller que indica que hubo un error
       case EFAULT:
       case ENOMEM:
         orden(c_error("ls: stat", errno));
         muere();
         return;
 
+      // En caso de que falle por algun error recuperable se envia
+      // una orden al front controller que indica que hubo un error
+      // y ademas se manda a imprimir un nuevo prompt
       default:
         orden(c_erroryprompt("ls: stat", errno));
         return;
     }
   }
 
+  // Si estamos tratando con un directorio se envia una instruccion
+  // al directorio con el que estamos trabajando para que haga ls de
+  // todos los archivos que el contiene.
   if (S_ISDIR(stats.st_mode)) {
     enviarInstruccion(buscarLibreta(instruccion.argumentos.unPath.camino), c_lsall());
   } else {
+    // Sino se realiza el caso base de ls que es para un archivo solamente
     base_ls(instruccion.argumentos.unPath.camino);
+    // Se envia una orden al front controller para que imprima un prompt
     orden(c_prompt());
   }
 }
@@ -1845,16 +1908,26 @@ Actor despachar(Mensaje mensaje, void * datos) {
       return mkActor(esperarFind, hijosEsperar);
     }
 
+    // En caso de ser un ls para todos los archivos dentro de un directorio
     case SI_LSALL: {
       struct dirent ** listaVacia;
+      // Para cada uno de los directorio (se recorre con
+      // scandir) se hace filterLs
       if (-1 == scandir(".", &listaVacia, filterLs, NULL)) {
+        // Si hay un error no recuperable se envia una instruccion al
+        // front controller indicando que hubo un error
         if (ENOMEM == errno) {
           orden(c_error("scandir", errno));
           muere();
         } else {
+          // En caso de que haya un error recuperable se envia una instruccion
+          // al front controller indicando que hubo un error y se le indica
+          // que imprima un nuevo prompt
           orden(c_erroryprompt("scandir", errno));
         }
       }
+      // Si se termina adecuadamente se envia una instruccion al front controller
+      // para que imprima un nuevo prompt
       orden(c_prompt());
     } break;
 
@@ -1866,33 +1939,70 @@ Actor despachar(Mensaje mensaje, void * datos) {
   return mkActor(despachar, datos);
 }
 
+/**
+ * Se encarga de crear a un nuevo actor y agregarlo
+ * a la libreta de direcciones.
+ * @param mensaje mensaje que se le envia al actor
+ * @param datos datos que se le pasan para que trabaje
+ * con ellos
+ * @return Retorna el actor con el comportamiento con el
+ * cual manejara el proximo mensaje
+ */
 Actor contratar(Mensaje mensaje, void * datos) {
+  // Si la libreta no existe es porque soy la raiz
   if (!libreta) {
+    // Indico en la variable global que soy la raiz
     soyRaiz = 1;
+    // Agrego a la direccion de la libreta mi direccion
+    // bajo el nombre de ..
     char * puntopunto;
     asprintf(&puntopunto, "..");
     insertarLibreta(puntopunto, miDireccion());
   }
 
+  // Si soy un subdirectorio de la raiz agrego
+  // mi direccion a la libreta de direcciones bajo
+  // el nombre de .
   char * punto;
   asprintf(&punto, ".");
   insertarLibreta(punto, miDireccion());
 
+  //Si hay un error al momento de intentar descender por
+  //ese directorio se envia una orden al front controller
+  //que indique que hubo un error
   if (-1 == chdir(mensaje.contenido)) {
     orden(c_error("chdir", errno));
     muere();
   } else {
+    // En caso de que podamos descender por el directorio
+    // hacemos scandir para crear los hijos actores correspondientes
+    // a sus subdirectorios
     struct dirent ** listaVacia;
     if (-1 == scandir(".", &listaVacia, filter, NULL)) {
+      // Si hay un error en el scandir se envia una orden al
+      // front controller que indique que hubo un error y matamos
+      // al actor.
       orden(c_error("scandir", errno));
       muere();
     }
   }
 
+  // finalmente se libera el espacio ocupado por el
+  // contenido del mensaje y se retorna un actor cuyo
+  // comportamiento sea despachar
   free(mensaje.contenido);
   return mkActor(despachar, datos);
 }
 
+/**
+ * Se encarga de manejar al padre del directorio que
+ * se procesa actualmente, agrega su direccion a la libreta
+ * de direcciones global.
+ * @param mensaje que contiene la direccion del padre
+ * @param datos datos con los que puede trabajar la funcion
+ * @return Retorna un actor con el comportamiento de
+ * contratar.
+ */
 Actor manejarPapa(Mensaje mensaje, void * datos);
 
 /**
@@ -1956,7 +2066,7 @@ void procesarSubdirectorio(char const * dir) {
  * funcion se llama cuando se hace scandir.
  * @param dir contiene informacion de un directorio
  * @return retorna cero siempre
- */ 
+ */
 int filter(struct dirent const * dir) {
   procesarSubdirectorio(dir->d_name);
   return 0;
@@ -1964,43 +2074,83 @@ int filter(struct dirent const * dir) {
 
 
 
+/**
+ * Se encarga de manejar al padre del directorio que
+ * se procesa actualmente, agrega su direccion a la libreta
+ * de direcciones global.
+ * @param mensaje que contiene la direccion del padre
+ * @param datos datos con los que puede trabajar la funcion
+ * @return Retorna un actor con el comportamiento de
+ * contratar.
+ */
 Actor manejarPapa(Mensaje mensaje, void * datos) {
+  // Se libera la libreta acumulada anteriormente
+  // ya que queremos que este actor solo tenga acceso a las
+  // direcciones de su padre y de sus hijos.
   liberarLibreta();
 
+  // Si tenemos que manejar al padre es porque no somos la raiz
   soyRaiz = 0;
+  // Agregamos a la libreta de direcciones la direccion del padre
+  // bajo el nombre de ..
   char * puntopunto;
   asprintf(&puntopunto, "..");
   insertarLibreta(puntopunto, deserializarDireccion(mensaje));
 
+  // Liberamos el espacio que ocupa el contenido del mensaje.
   free(mensaje.contenido);
+  // Retornamos un nuevo actor cuyo comportamiento sea contratar
   return mkActor(contratar, datos);
 }
 
 
 
+/**
+ * Se encarga de imprimir por pantalla, es el
+ * comportamiento del actor impresora.
+ * @param mensaje mensaje que contiene la instruccion
+ * con los datos que se van a imprimir
+ * @param datos con los que trabaja el actor
+ * @return Retorna un nuevo actor cuyo comportamiento
+ * sea imprimir
+ */
 Actor imprimir(Mensaje mensaje, void * datos) {
+  // Deserializamos el la instruccion contenida en el mensaje
   Instruccion instruccion = deserializar(mensaje);
 
+  // Segun el selector sabemos que tipo de informacion vamos
+  // a imprimir
   switch (instruccion.selector) {
+    // Si es un muere matamos al actor.
     case SI_MUERE:
       return finActor();
 
+    // Si es un imprime imprimimos el texto en los argumentos
+    // de la instruccion.
     case SI_IMPRIME:
       fwrite(instruccion.argumentos.datos.texto, sizeof(char), instruccion.argumentos.datos.longitud, stdout);
       fflush(stdout);
       break;
 
+    // Si es un imprime imprimimos el texto en los argumentos
+    // de la instruccion y ademas enviamos una orden al front controller
+    // para que imprima un nuevo prompt
     case SI_IMPRIMEYPROMPT:
       fwrite(instruccion.argumentos.datos.texto, sizeof(char), instruccion.argumentos.datos.longitud, stdout);
       fflush(stdout);
       orden(c_prompt());
       break;
 
+    // En caso de ser un error se maneja el error con
+    // perror y se le asigna a errno el codigo del error.
     case SI_ERROR:
       errno = instruccion.argumentos.error.codigo;
       perror(instruccion.argumentos.error.texto);
       break;
 
+    // Si es un error y prompt se maneja de la misma manera
+    // que antes solo qeu ahora se le envia una orden al
+    // front controller para que imprima un nuevo prompt
     case SI_ERRORYPROMPT:
       errno = instruccion.argumentos.error.codigo;
       perror(instruccion.argumentos.error.texto);
@@ -2011,7 +2161,10 @@ Actor imprimir(Mensaje mensaje, void * datos) {
       break;
   }
 
+  // Liberamos el espacio ocupado por el contenido del mensaje
   free(mensaje.contenido);
+  // Retornamos un actor cuyo comportamiento sea imprimir (es decir,
+  // como va a manejar este actor el proximo mensaje que le llegue)
   return mkActor(imprimir, datos);
 }
 
@@ -2029,43 +2182,71 @@ void avanzaHastaNo(int (*predicado)(int c), char ** cursor) {
 
 
 
+/**
+ * Tipo que contiene una estructura que sirve para
+ * parsear un comando introducido en el shell.
+ */
 typedef
+  /**
+   * Estructura que contiene un selector para indicar
+   * que tipo de comando es, primer y segundo argumento.
+   */
   struct comando {
+    /**
+     * Tipo enumerado para los distintos tipos de comandos
+     * que se pueden tener en el shell
+     */
     enum selectorComando
-      { SC_INVALIDO = 0
-      , SC_NADA
-      , SC_LS
-      , SC_CAT
-      , SC_CP
-      , SC_MV
-      , SC_FIND
-      , SC_RM
-      , SC_MKDIR
-      , SC_RMDIR
-      , SC_QUIT
+      { SC_INVALIDO = 0 /**< Comando Invalido                                       */
+      , SC_NADA         /**< Comando Nada (no se introduce comando alguno al prompt */
+      , SC_LS           /**< Comando ls                                             */
+      , SC_CAT          /**< Comando cat                                            */
+      , SC_CP           /**< Comando cp                                             */
+      , SC_MV           /**< Comando mv                                             */
+      , SC_FIND         /**< Comando find                                           */
+      , SC_RM           /**< Comando rm                                             */
+      , SC_MKDIR        /**< Comando mkdir                                          */
+      , SC_RMDIR        /**< Comando rmdir                                          */
+      , SC_QUIT         /**< Comando quit                                           */
       }
-      selector
+      selector /**< Selector para el tipo de comando */
     ;
 
-    char * argumento1;
-    char * argumento2;
-
-    char * origen;
-    char * destino;
+    char * argumento1; /**< Primer argumento */
+    char * argumento2; /**< Segundo argumento */
   }
   Comando
 ;
 
+/**
+ * Se encarga de decodificar un comando leido
+ * del prompt y retonar su selector correspondiente
+ * dado el texto que se lee.
+ * @param texto texto que vamos a verificar que
+ * comando es
+ * @return Retorna el valor adecuado para el selector
+ * del comando.
+ */
 enum selectorComando decodificar(char * texto) {
+  // Si el texto es igual a ls se retorna el selector de ls
   if (!strcmp(texto, "ls"   )) return SC_LS   ;
+  // Si el texto es igual a cat se retorna el selector de cat
   if (!strcmp(texto, "cat"  )) return SC_CAT  ;
+  // Si el texto es igual a cp se retorna el selector de cp
   if (!strcmp(texto, "cp"   )) return SC_CP   ;
+  // Si el texto es igual a mv se retorna el selector de mv
   if (!strcmp(texto, "mv"   )) return SC_MV   ;
+  // Si el texto es igual a find se retorna el selector de find
   if (!strcmp(texto, "find" )) return SC_FIND ;
+  // Si el texto es igual a rm se retorna el selector de rm
   if (!strcmp(texto, "rm"   )) return SC_RM   ;
+  // Si el texto es igual a mkdir se retorna el selector de mkdir
   if (!strcmp(texto, "mkdir")) return SC_MKDIR;
+  // Si el texto es igual a rmdir se retorna el selector de rmdir
   if (!strcmp(texto, "rmdir")) return SC_RMDIR;
+  // Si el texto es igual a quit se retorna el selector de quit
   if (!strcmp(texto, "quit" )) return SC_QUIT ;
+  // Si no es ninguno de ellos se retorna el selector invalido.
   return SC_INVALIDO;
 }
 
@@ -2126,33 +2307,54 @@ Comando fetch() {
 
   comando.selector = SC_INVALIDO;
   return comando;
-
-  // TODO: redirección
-  //comando.origen = ;
-  //comando.destino = ;
 }
 
-
+/**
+ * Se encarga de enviar un mensaje al front controller
+ * para que imprima un mensaje que indique al usuario
+ * que el comando insertado es invalido
+ * @param comando comando insertado por el usuario
+ */
 void comandoInvalido(Comando * comando) {
+  // Se le envia una orden al front controller de que
+  // imprima que el comando es invalido y ademas imprima
+  // un nuevo prompt
   orden(c_imprimeyprompt("Comando inválido\n"));
+  // Asigna el selector del comando insertado como invalido
+  // ya que puede ser un comando invalido por no existir
+  // o porque los argumentos del comando esten mal especificados
   comando->selector = SC_INVALIDO;
 }
 
+/**
+ * Se encarga de ejercer las funciones del prompt
+ */
 void prompt() {
+  // Hacemos fetch del comando
   Comando comando = fetch();
 
+  // Segun el selector del comando se verifica que no
+  // sea un comando invalido.
   switch (comando.selector) {
+    // En caso de ser un comando invalido se llama
+    // a la funcion comandoInvalido
     case SC_INVALIDO:
       comandoInvalido(&comando);
       break;
 
+    // En caso de ser nada hace break
     case SC_NADA:
       break;
 
+    // En caso de que sea quit, si hay algun argumento ademas
+    // de la palabra quit ese comando se torna invalido.
     case SC_QUIT:
       if (comando.argumento1 || comando.argumento2) comandoInvalido(&comando);
       break;
 
+    // Para el caso de ls, cat, find, rm, mkdir y rmdir se trabaja
+    // con un solo argumento asi que este comando se torna invalido
+    // cuando hay un segundo argumento o cuando el primero esta ausente.
     case SC_LS:
     case SC_CAT:
     case SC_FIND:
@@ -2162,52 +2364,91 @@ void prompt() {
       if (!comando.argumento1 || comando.argumento2) comandoInvalido(&comando);
       break;
 
+    // Para el caso de cp y mv necesitamos dos argumentos, asi que
+    // la falta de alguno de ellos invalida el comando
     case SC_CP:
     case SC_MV:
       if (!comando.argumento1 || !comando.argumento2) comandoInvalido(&comando);
       break;
   }
 
+  // Una vez que se verifica que el comando tiene el numero de argumentos
+  // adecuados se procede a efectuar la accion segun el tipo de comando que sea
   switch (comando.selector) {
+    // En caso de ser invalido no se hace nada
     case SC_INVALIDO: break;
 
+    // En caso de ser vacio se imprime un nuevo prompt (a traves de una orden
+    // al front controller)
     case SC_NADA:
       orden(c_imprimeyprompt(""));
       break;
 
+    // En caso de ser quit mata a los actores.
     case SC_QUIT: muere(); break;
 
+    // En caso de ser mkdir, llama a orden con el constructor para la instruccion mkdir
     case SC_MKDIR: orden(c_mkdir(comando.argumento1)); break;
+    // En caso de ser rm, llama a orden con el constructor para la instruccion rm
     case SC_RM   : orden(c_rm   (comando.argumento1)); break;
+    // En caso de ser rmdir, llama a orden con el constructor para la instruccion rmdir
     case SC_RMDIR: orden(c_rmdir(comando.argumento1)); break;
+    // En caso de ser ls, llama a orden con el constructor para la instruccion ls
     case SC_LS   : orden(c_ls   (comando.argumento1)); break;
+    // En caso de ser cat, llama a orden con el constructor para la instruccion cat
     case SC_CAT  : orden(c_cat  (comando.argumento1)); break;
 
+    // En caso de ser cp, llama a orden con el constructor para la instruccion cp
     case SC_CP: orden(c_cp(comando.argumento1, comando.argumento1, comando.argumento2)); break;
+    // En caso de ser mv llama a orden con el constructor para la instruccion mv
     case SC_MV: orden(c_mv(comando.argumento1, comando.argumento1, comando.argumento2)); break;
 
+    // En caso de ser find, llama a orden con el constructor para la instruccion find
     case SC_FIND: orden(c_find(".", ".", comando.argumento1)); break;
 
     default:
+      // Si no es alguna de las anteriores se envia una orden al front
+      // controller para que imprima que la instruccion no fue encontrada
+      // e imprima un nuevo prompt
       orden(c_imprimeyprompt("Instruccion no encontrada\n"));
       break;
   }
 }
 
 
-
+/**
+ * Se encarga de realizar las acciones del
+ * front controller.
+ * @param mensaje mensaje que le llega al front
+ * controller con la instruccion
+ * @datos datos con los que trabajara el actor que
+ * retorne
+ * @return Retorna un nuevo actor que indica como se comportara
+ * el front controller cuando le llegue el proximo mensaje.
+ */
 Actor accionFrontController(Mensaje mensaje, void * datos) {
+  // Primero debemos deserializar la instruccion contenida
+  // en el mensaje
   Instruccion instruccion = deserializar(mensaje);
 
+  // Segun el selector de la instruccion se decide que hacer
   switch (instruccion.selector) {
+    // Si la instruccion es un muere
+    // el front controller mata a la raiz
+    // mata a la impresora y espera a que ellos mueran
     case SI_MUERE:
       enviar(raiz, mensaje);
       enviar(impresora, mensaje);
       esperar(raiz);
       esperar(impresora);
+      // finalmente libera el contenido del mensaje y
+      // muere
       free(mensaje.contenido);
       return finActor();
 
+    // En caso de ser un imprime, imprime y prompt,
+    // error o error y prompt se reenvia el mensaje
+    // a la impresora
     case SI_IMPRIME:
     case SI_IMPRIMEYPROMPT:
     case SI_ERROR:
@@ -2215,88 +2456,157 @@ Actor accionFrontController(Mensaje mensaje, void * datos) {
       enviar(impresora, mensaje);
       break;
 
+    // En caso de ser un prompt el front controller
+    // llama a la funcion prompt
     case SI_PROMPT:
       prompt();
       break;
 
+    // Por defecto si es cualquier otro mensaje
+    // se lo reenvia a la raiz.
     default:
       enviar(raiz, mensaje);
       break;
   }
 
+  // Se libera el espacio ocupado por el contenido del mensaje
   free(mensaje.contenido);
+  // Retorna un actor cuya accion sea accionFrontController
+  // (esta es la manera en que el front controller se comportara
+  // cuando le llegue una nueva instruccion)
   return mkActor(accionFrontController, datos);
 }
 
+/**
+ * Se encarga de las funciones que cumple el front controller
+ * la primera vez que es llamado al inicio de la ejecucion
+ * @param mensaje mensaje que le llega al front controller
+ * @param datos con los que trabaja el actor que retorna
+ * @return Retorna un actor que representa como se comportara
+ * el front controller ante un nuevo mensaje
+ */
 Actor inicioFrontController(Mensaje mensaje, void * datos) {
+  // Asignamos a la direccion global del front controller
+  // su direccion para que todos los actores le puedan escribir
   frontController = miDireccion();
 
+  // Crea al actor encargado de la impresora (sin enlazar)
   impresora = crearSinEnlazar(mkActor(imprimir, NULL));
+  // Si no se puede crear se envia la instruccion de muere
   if (!impresora) {
     muere();
   }
 
+  // Crea al actor encargado de la raiz (sin enlazar)
   raiz = crearSinEnlazar(mkActor(contratar, NULL));
+  // Si no se puede crear se envia una orden al front controller
+  // que indique que hubo un error y se ejecuta la instruccion de muere
   if (!raiz) {
     orden(c_error("crearSinEnlazar", errno));
     muere();
   }
 
+  // Enviamos el primer mensaje a la raiz
   if (-1 == enviar(raiz, mensaje)) {
+    // Si hay un error enviando se envia una orden al front
+    // controller para indicar que hubo un error y se
+    // ejecuta la instruccion de muere
     orden(c_error("enviar", errno));
     muere();
   }
 
+  // Finalmente se envia una orden al front controller
+  // para que imprima el primer prompt
   orden(c_prompt());
 
+  // Liberamos el espacio ocupado por el contenido del mensaje
   free(mensaje.contenido);
+  // Se retorna el actor con el comportamiento del front controller
+  // ante un nuevo mensaje
   return mkActor(accionFrontController, datos);
 }
 
 
 
+/**
+ * Como queremos que el shell no pueda ser matado con ctrl+c
+ * y afines creamos un nuevo manejador de señales para estas
+ * @param s señal que va a manejar
+ */
 void handler(int s) {
+  // Se imprime un mensaje al usuario indicando que no se puede
+  // matar al shell con una señal.
   printf("\nNo es posible matarmme con una señal jijiji >:3 tienes que usar quit\nchelito: ");
   fflush(stdout);
 }
 
+/**
+ * Main del programa, se encarga de crear el front controller
+ * y enviarle el primer mensaje para comenzar la ejecucion del
+ * shell
+ */
 int main(int argc, char * argv[]) {
+  // Si el numero de argumentos con que se invoca al
+  // shell es erroneo se imprime un mensaje al usuario
+  // indicando su uso.
   if (2 != argc) {
     fprintf(stderr, "Uso: %s <directorio>\n", argv[0]);
     exit(EX_USAGE);
   }
 
+  // Se indica que se ignoran la señal SIGQUIT
+  // en caso de que signal de error, se maneja
+  // con perror
   if (SIG_ERR == signal(SIGQUIT, SIG_IGN)) {
     perror("signal");
     exit(EX_OSERR);
   }
 
+  // Se indica que se ignora la señal SIGINT
+  // en caso de que signal de error, se maneja
+  // con perror
   if (SIG_ERR == signal(SIGINT, SIG_IGN)) {
     perror("signal");
     exit(EX_OSERR);
   }
 
+  // Creamos el actor para el front controller (sin enlazar)
   frontController = crearSinEnlazar(mkActor(inicioFrontController, NULL));
   if (!frontController) {
+    // Si hay un error se maneja con perror
     perror("crear");
     exit(EX_IOERR);
   }
 
+  // Se le envia el primer mensaje al front controller indicandole
+  // el directorio raiz con el que va a trabajar el shell
   if (-1 == enviar(frontController, mkMensaje(strlen(argv[1]) + 1, argv[1]))) {
+    // Si hay un error al enviar se maneja con perror
     perror("enviar");
     exit(EX_IOERR);
   }
 
+  // Se indica que la señal SIGQUIT se maneja con
+  // el nuevo handler,
+  // en caso de que signal de error, se maneja
+  // con perror
   if (SIG_ERR == signal(SIGQUIT, handler)) {
     perror("signal");
     exit(EX_OSERR);
   }
 
+  // Se indica que la señal SIGINT se maneja con
+  // el nuevo handler,
+  // en caso de que signal de error, se maneja
+  // con perror
   if (SIG_ERR == signal(SIGINT, handler)) {
     perror("signal");
     exit(EX_OSERR);
   }
 
+  // Se espera a que el actor front controller
+  // termine su ejecucion
   esperar(frontController);
+  // Finalmente salimos del programa con EX_OK
   exit(EX_OK);
 }
